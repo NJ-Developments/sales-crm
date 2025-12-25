@@ -134,10 +134,10 @@ export default function App() {
     setPagination(null);
     
     const center = mapInstance.current.getCenter();
-    const searchLocation = { lat: center.lat(), lng: center.lng() };
+    const searchLocation = new window.google.maps.LatLng(center.lat(), center.lng());
     
     // Show search radius circle
-    updateSearchCircle(searchLocation, radius);
+    updateSearchCircle({ lat: center.lat(), lng: center.lng() }, radius);
     
     const service = new window.google.maps.places.PlacesService(mapInstance.current);
     
