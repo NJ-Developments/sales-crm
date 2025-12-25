@@ -40,12 +40,11 @@ export default function App() {
   const [keyInput, setKeyInput] = useState('');
   const markers = useRef([]);
   const searchCircle = useRef(null);
+  const placesServiceDiv = useRef(null);
   
   // Search controls
   const [radius, setRadius] = useState(8047); // 5 miles default
   const [businessType, setBusinessType] = useState('');
-  const [pagination, setPagination] = useState(null);
-  const [hasMore, setHasMore] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
 
   useEffect(() => { localStorage.setItem('leads', JSON.stringify(leads)); updateMarkers(); }, [leads]);
@@ -114,15 +113,8 @@ export default function App() {
     });
   }
 
-  function search(loadMore = false) {
+  function search() {
     if (!mapInstance.current) return;
-    
-    // If loading more, use the pagination object
-    if (loadMore && pagination) {
-      setSearching(true);
-      pagination.nextPage();
-      return;
-    }
     
     if (!query.trim() && !businessType) {
       alert('Enter a search term or select a business type');
@@ -130,33 +122,29 @@ export default function App() {
     }
     
     setSearching(true);
-    setHasMore(false);
-    setPagination(null);
     
     const center = mapInstance.current.getCenter();
-    const searchLocation = new window.google.maps.LatLng(center.lat(), center.lng());
+    const centerLat = center.lat();
+    const centerLng = center.lng();
     
     // Show search radius circle
-    updateSearchCircle({ lat: center.lat(), lng: center.lng() }, radius);
+    updateSearchCircle({ lat: centerLat, lng: centerLng }, radius);
     
+    // Build search query
+    let searchQuery = query.trim();
+    const selectedType = BUSINESS_TYPES.find(t => t.value === businessType);
+    if (businessType && selectedType) {
+      searchQuery = searchQuery ? `${selectedType.label} ${searchQuery}` : selectedType.label;
+    }
+    
+    // Use textSearch with location bias
     const service = new window.google.maps.places.PlacesService(mapInstance.current);
     
-    const searchRequest = {
-      location: searchLocation,
+    service.textSearch({
+      query: searchQuery,
+      location: center,
       radius: radius,
-    };
-    
-    // Add keyword if provided
-    if (query.trim()) {
-      searchRequest.keyword = query.trim();
-    }
-    
-    // Add type if selected
-    if (businessType) {
-      searchRequest.type = businessType;
-    }
-    
-    service.nearbySearch(searchRequest, (results, status, paginationObj) => {
+    }, (results, status) => {
       setSearching(false);
       if (status !== 'OK' || !results) {
         if (status === 'ZERO_RESULTS') {
@@ -167,20 +155,23 @@ export default function App() {
         return;
       }
       
-      // Store pagination for "load more"
-      if (paginationObj && paginationObj.hasNextPage) {
-        setPagination(paginationObj);
-        setHasMore(true);
-      } else {
-        setPagination(null);
-        setHasMore(false);
+      // Filter results by distance from center
+      const filteredResults = results.filter(p => {
+        const lat = p.geometry.location.lat();
+        const lng = p.geometry.location.lng();
+        const distance = getDistanceMeters(centerLat, centerLng, lat, lng);
+        return distance <= radius;
+      });
+      
+      if (filteredResults.length === 0) {
+        alert('No results found within your selected radius. Try expanding it.');
+        return;
       }
       
-      const newLeads = results.map(p => ({
-        id: p.place_id, name: p.name, address: p.vicinity || p.formatted_address,
+      const newLeads = filteredResults.map(p => ({
+        id: p.place_id, name: p.name, address: p.formatted_address,
         lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
         phone: null, website: null, called: false, addedAt: Date.now(),
-        rating: p.rating || null, userRatingsTotal: p.user_ratings_total || 0,
       }));
       
       // Fetch details for each lead (phone/website)
@@ -195,48 +186,17 @@ export default function App() {
     });
   }
   
-  function loadMore() {
-    if (pagination && pagination.hasNextPage) {
-      setSearching(true);
-      pagination.nextPage();
-    }
+  // Calculate distance between two points in meters
+  function getDistanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
-  
-  // Handle pagination results
-  useEffect(() => {
-    if (!pagination) return;
-    
-    const handlePagination = (results, status, paginationObj) => {
-      setSearching(false);
-      if (status !== 'OK' || !results) return;
-      
-      if (paginationObj && paginationObj.hasNextPage) {
-        setPagination(paginationObj);
-        setHasMore(true);
-      } else {
-        setPagination(null);
-        setHasMore(false);
-      }
-      
-      const newLeads = results.map(p => ({
-        id: p.place_id, name: p.name, address: p.vicinity || p.formatted_address,
-        lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
-        phone: null, website: null, called: false, addedAt: Date.now(),
-        rating: p.rating || null, userRatingsTotal: p.user_ratings_total || 0,
-      }));
-      
-      const service = new window.google.maps.places.PlacesService(mapInstance.current);
-      newLeads.forEach(lead => {
-        service.getDetails({ placeId: lead.id, fields: ['formatted_phone_number', 'website'] }, (place) => {
-          if (place) setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, phone: place.formatted_phone_number || null, website: place.website || null } : l));
-        });
-      });
-      
-      setLeads(prev => { const ids = new Set(prev.map(l => l.id)); return [...prev, ...newLeads.filter(l => !ids.has(l.id))]; });
-    };
-    
-    // This effect runs when pagination changes, but the actual callback happens in loadMore
-  }, [pagination]);
 
   function toggleCalled(id) { setLeads(prev => prev.map(l => l.id === id ? { ...l, called: !l.called } : l)); }
   function removeLead(id) { setLeads(prev => prev.filter(l => l.id !== id)); }
@@ -307,11 +267,6 @@ export default function App() {
                 <div className="search-hint">
                   <span>📍 Pan the map to search different areas</span>
                 </div>
-                {hasMore && (
-                  <button className="load-more-btn" onClick={loadMore} disabled={searching}>
-                    {searching ? 'Loading...' : 'Load More Results'}
-                  </button>
-                )}
               </div>
             )}
             {tab === 'leads' && (
