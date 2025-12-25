@@ -283,9 +283,35 @@ export default function App() {
         {panelOpen && (
           <div className="panel-body">
             {tab === 'search' && (
-              <div className="search-row">
-                <input placeholder="e.g. plumbers in miami" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()} />
-                <button onClick={search} disabled={searching}>🔍</button>
+              <div className="search-section">
+                <div className="search-row">
+                  <input placeholder="e.g. plumbers, roofing, etc." value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()} />
+                  <button onClick={() => search()} disabled={searching}>🔍</button>
+                </div>
+                <div className="search-controls">
+                  <div className="control-group">
+                    <label>Business Type</label>
+                    <select value={businessType} onChange={e => setBusinessType(e.target.value)}>
+                      {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="control-group">
+                    <label>Radius</label>
+                    <div className="radius-buttons">
+                      {RADIUS_OPTIONS.map(r => (
+                        <button key={r.value} className={radius === r.value ? 'active' : ''} onClick={() => setRadius(r.value)}>{r.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="search-hint">
+                  <span>📍 Pan the map to search different areas</span>
+                </div>
+                {hasMore && (
+                  <button className="load-more-btn" onClick={loadMore} disabled={searching}>
+                    {searching ? 'Loading...' : 'Load More Results'}
+                  </button>
+                )}
               </div>
             )}
             {tab === 'leads' && (
