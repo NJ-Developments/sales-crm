@@ -1,7 +1,7 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: system-ui, -apple-system, sans-serif; background: #09090b; color: #fff; }
+/* CRM-specific styles - scoped to prevent conflicts with landing page */
+.app { font-family: system-ui, -apple-system, sans-serif; background: #09090b; color: #fff; }
 
-.setup { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.setup { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: #09090b; }
 .setup-box { background: #18181b; padding: 32px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; }
 .setup-box h1 { font-size: 24px; margin-bottom: 8px; }
 .setup-box > p { color: #71717a; margin-bottom: 20px; }

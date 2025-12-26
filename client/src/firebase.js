@@ -15,6 +15,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
+// Check if Firebase is configured (always true with hardcoded config)
+export function isFirebaseConfigured() {
+  return true;
+}
+
+// Initialize Firebase (no-op since already initialized)
+export function initFirebase() {
+  return { app, database };
+}
+
 // Save a lead to Firebase
 export function saveLead(lead) {
   const leadRef = ref(database, `leads/${lead.id}`);
