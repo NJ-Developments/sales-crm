@@ -1,98 +1,147 @@
-/* User Roles & Team Management Styles */
+/* ==========================================
+   User Roles & Login - Premium Design
+   ========================================== */
 
-/* Login Selector */
+/* Login Selector - Full Screen Premium */
 .user-login-selector {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #1a3a5c 0%, #0f2439 100%);
+  background: linear-gradient(135deg, #0a192f 0%, #112240 50%, #0a192f 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 
+.user-login-selector::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(45,212,191,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
 .login-card {
-  background: white;
-  border-radius: 16px;
-  padding: 40px;
-  max-width: 400px;
+  background: linear-gradient(180deg, #112240 0%, #0a192f 100%);
+  border: 1px solid #2d4a6e;
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 440px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(45,212,191,0.4), transparent);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 .login-logo {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   object-fit: contain;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 12px rgba(45,212,191,0.3));
 }
 
 .login-header h2 {
-  color: #1a3a5c;
-  font-size: 24px;
-  margin: 0 0 8px 0;
+  color: #e6f1ff;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
-  color: #64748b;
+  color: #5a7a9a;
   margin: 0;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .team-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .team-member-btn {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  gap: 18px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #1d3557 0%, #112240 100%);
+  border: 1px solid #2d4a6e;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.team-member-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(45,212,191,0.08) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 .team-member-btn:hover {
-  border-color: #2a9d8f;
-  background: #f0fdfa;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(42, 157, 143, 0.15);
+  border-color: #2dd4bf;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(45, 212, 191, 0.15), 0 0 0 1px rgba(45,212,191,0.2);
 }
 
+.team-member-btn:hover::before { opacity: 1; }
+
 .member-avatar {
-  font-size: 32px;
-  width: 48px;
-  height: 48px;
+  font-size: 36px;
+  width: 54px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e2e8f0;
-  border-radius: 12px;
+  background: linear-gradient(135deg, #2d4a6e 0%, #1d3557 100%);
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .member-name {
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 16px;
+  font-weight: 700;
+  color: #e6f1ff;
+  font-size: 17px;
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .member-role {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.05);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(45,212,191,0.15);
+  color: #2dd4bf;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
 }
 
 /* User Badge */
