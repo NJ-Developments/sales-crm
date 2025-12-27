@@ -141,9 +141,20 @@ export default function CRM() {
   
   // Search controls
   const [radius, setRadius] = useState(8047); // 5 miles default
+  const [customRadius, setCustomRadius] = useState(''); // Custom radius input
   const [businessType, setBusinessType] = useState('');
   const [searchCenter, setSearchCenter] = useState(null);
+  const [droppedPin, setDroppedPin] = useState(null); // User-placed pin location
+  const [pinDropMode, setPinDropMode] = useState(false); // Whether pin drop mode is active
+  const pinDropModeRef = useRef(false); // Ref for pin drop mode (for map click handler)
+  const radiusRef = useRef(8047); // Ref for radius (for map click handler)
+  const droppedPinMarker = useRef(null); // Marker for dropped pin
   const [pagination, setPagination] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Keep refs in sync with state
+  useEffect(() => { pinDropModeRef.current = pinDropMode; }, [pinDropMode]);
+  useEffect(() => { radiusRef.current = radius; }, [radius]);
 
   // Keep leadsRef in sync with leads state
   useEffect(() => { 
@@ -201,7 +212,7 @@ export default function CRM() {
     }
     
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=Function.prototype`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -230,6 +241,36 @@ export default function CRM() {
     mapInstance.current.addListener('idle', () => {
       const center = mapInstance.current.getCenter();
       setSearchCenter({ lat: center.lat(), lng: center.lng() });
+    });
+    // Click to drop pin when in pin drop mode
+    mapInstance.current.addListener('click', (e) => {
+      if (pinDropModeRef.current) {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        setDroppedPin({ lat, lng });
+        setPinDropMode(false);
+        // Update dropped pin marker
+        if (droppedPinMarker.current) {
+          droppedPinMarker.current.setPosition({ lat, lng });
+        } else {
+          droppedPinMarker.current = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: mapInstance.current,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: '#a855f7',
+              fillOpacity: 1,
+              strokeColor: '#fff',
+              strokeWeight: 3,
+            },
+            title: 'Search Center',
+            zIndex: 9999,
+          });
+        }
+        // Update search circle to show from dropped pin
+        updateSearchCircle({ lat, lng }, radiusRef.current);
+      }
     });
     updateMarkers();
   }
@@ -311,9 +352,16 @@ export default function CRM() {
     
     setSearching(true);
     
-    const center = mapInstance.current.getCenter();
-    const centerLat = center.lat();
-    const centerLng = center.lng();
+    // Use dropped pin location if set, otherwise use map center
+    let centerLat, centerLng;
+    if (droppedPin) {
+      centerLat = droppedPin.lat;
+      centerLng = droppedPin.lng;
+    } else {
+      const center = mapInstance.current.getCenter();
+      centerLat = center.lat();
+      centerLng = center.lng();
+    }
     
     // Show search radius circle
     updateSearchCircle({ lat: centerLat, lng: centerLng }, radius);
@@ -330,7 +378,7 @@ export default function CRM() {
     
     service.textSearch({
       query: searchQuery,
-      location: center,
+      location: { lat: centerLat, lng: centerLng },
       radius: radius,
     }, (results, status) => {
       setSearching(false);
@@ -494,7 +542,7 @@ export default function CRM() {
       }
       // Sync to Firebase
       if (lead && firebaseConnected) {
-        updateFirebaseLead(lead);
+        updateFirebaseLead(lead.id, lead);
       }
       return updated;
     });
@@ -520,7 +568,7 @@ export default function CRM() {
       // Sync to Firebase
       const lead = updated.find(l => l.id === id);
       if (lead && firebaseConnected) {
-        updateFirebaseLead(lead);
+        updateFirebaseLead(lead.id, lead);
       }
       return updated;
     });
@@ -602,7 +650,6 @@ export default function CRM() {
   }
 
   function saveKey() { if (keyInput.trim()) { localStorage.setItem('mapsApiKey', keyInput.trim()); setApiKey(keyInput.trim()); } }
-  function saveName() { if (nameInput.trim()) { localStorage.setItem('userName', nameInput.trim()); setUserName(nameInput.trim()); } }
 
   // Show API key setup first
   if (!apiKey) {
@@ -616,29 +663,6 @@ export default function CRM() {
           <div className="help">
             <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Get API Key</a>
             <span> • Enable Maps JavaScript API + Places API</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show profile selector after API key
-  if (!userName) {
-    return (
-      <div className="setup">
-        <div className="setup-box">
-          <h1>👋 Who's using this?</h1>
-          <p>Select your profile</p>
-          <div className="profile-buttons">
-            {TEAM_MEMBERS.map(name => (
-              <button 
-                key={name} 
-                className="profile-btn"
-                onClick={() => { localStorage.setItem('userName', name); setUserName(name); }}
-              >
-                {name === 'Javi' ? '👨‍💼' : '👨‍💻'} {name}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -767,13 +791,13 @@ export default function CRM() {
                 <label>Current Profile</label>
                 <p className="help-text">Switch between team members</p>
                 <div className="profile-switch">
-                  {TEAM_MEMBERS.map(name => (
+                  {team.map(member => (
                     <button 
-                      key={name}
-                      className={`profile-option ${userName === name ? 'active' : ''}`}
-                      onClick={() => { localStorage.setItem('userName', name); setUserName(name); }}
+                      key={member.id}
+                      className={`profile-option ${currentUser?.id === member.id ? 'active' : ''}`}
+                      onClick={() => login(member.id)}
                     >
-                      {name}
+                      {member.name}
                     </button>
                   ))}
                 </div>
@@ -798,18 +822,11 @@ export default function CRM() {
         <div className="panel-header">
           <button className="toggle-btn" onClick={() => setPanelOpen(!panelOpen)}>{panelOpen ? '◀' : '▶'}</button>
           {panelOpen && (
-            <>
-              <div className="tabs">
-                <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>📊</button>
-                <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>Leads <span className="count">{filtered.length}</span></button>
-                <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>Search</button>
-                {isAdmin() && (
-                  <button className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>👥</button>
-                )}
-              </div>
-              <button className="settings-btn" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
-              <UserBadge user={currentUser} onLogout={logout} />
-            </>
+            <div className="tabs">
+              <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>📊 Home</button>
+              <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
+              <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>🔍 Search</button>
+            </div>
           )}
         </div>
         {panelOpen && (
@@ -817,13 +834,19 @@ export default function CRM() {
             {tab === 'dashboard' && (
               <Dashboard 
                 leads={visibleLeads} 
+                currentUser={currentUser}
+                team={team}
+                onLogout={logout}
+                onShowSettings={() => setShowSettings(true)}
+                onShowTeam={() => setTab('team')}
+                isAdmin={isAdmin()}
                 onNavigate={(lead) => {
                   setSelectedLead(lead);
                   setTab('leads');
                 }}
               />
             )}
-            {tab === 'team' && isAdmin() && (
+            {tab === 'team' && (
               <TeamManagementPanel
                 team={team}
                 currentUser={currentUser}
@@ -845,16 +868,69 @@ export default function CRM() {
                     <label>Search Radius</label>
                     <div className="radius-buttons">
                       {RADIUS_OPTIONS.map(r => (
-                        <button key={r.value} className={radius === r.value ? 'active' : ''} onClick={() => setRadius(r.value)}>{r.label}</button>
+                        <button key={r.value} className={radius === r.value && !customRadius ? 'active' : ''} onClick={() => { setRadius(r.value); setCustomRadius(''); }}>{r.label}</button>
                       ))}
                     </div>
+                    <div className="custom-radius-row">
+                      <input 
+                        type="number" 
+                        placeholder="Custom miles..." 
+                        value={customRadius}
+                        onChange={e => {
+                          setCustomRadius(e.target.value);
+                          if (e.target.value) {
+                            setRadius(Math.round(parseFloat(e.target.value) * 1609.34)); // Convert miles to meters
+                          }
+                        }}
+                        className="custom-radius-input"
+                      />
+                      <span className="custom-radius-label">mi</span>
+                    </div>
+                  </div>
+                  <div className="control-group">
+                    <label>Search Center</label>
+                    <div className="pin-drop-controls">
+                      <button 
+                        className={`pin-drop-btn ${pinDropMode ? 'active' : ''}`}
+                        onClick={() => setPinDropMode(!pinDropMode)}
+                      >
+                        📍 {pinDropMode ? 'Click Map to Drop Pin' : 'Drop Pin on Map'}
+                      </button>
+                      {droppedPin && (
+                        <button 
+                          className="clear-pin-btn"
+                          onClick={() => {
+                            setDroppedPin(null);
+                            if (droppedPinMarker.current) {
+                              droppedPinMarker.current.setMap(null);
+                              droppedPinMarker.current = null;
+                            }
+                            if (searchCircle.current) {
+                              searchCircle.current.setMap(null);
+                            }
+                          }}
+                        >
+                          ✕ Clear Pin
+                        </button>
+                      )}
+                    </div>
+                    {droppedPin && (
+                      <div className="pin-location-info">
+                        ✓ Pin placed at {droppedPin.lat.toFixed(4)}, {droppedPin.lng.toFixed(4)}
+                      </div>
+                    )}
+                    {pinDropMode && (
+                      <div className="pin-drop-hint">
+                        👆 Click anywhere on the map to set search center
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button className="search-btn" onClick={() => search()} disabled={searching || !businessType}>
-                  {searching ? '🔄 Searching...' : '🔍 Search This Area'}
+                  {searching ? '🔄 Searching...' : `🔍 Search ${droppedPin ? 'From Pin' : 'This Area'}`}
                 </button>
                 <div className="search-hint">
-                  <span>📍 Pan the map to search different areas</span>
+                  <span>{droppedPin ? '📍 Searching from dropped pin location' : '📍 Pan the map or drop a pin to search different areas'}</span>
                 </div>
               </div>
             )}

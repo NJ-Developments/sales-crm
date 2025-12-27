@@ -1,8 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import './Dashboard.css';
 
 // Dashboard component showing CRM statistics
-export default function Dashboard({ leads, onNavigate }) {
+export default function Dashboard({ 
+  leads, 
+  onNavigate, 
+  currentUser, 
+  team,
+  onLogout,
+  onShowSettings,
+  onShowTeam,
+  isAdmin 
+}) {
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const stats = useMemo(() => {
     const now = Date.now();
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
@@ -101,6 +111,30 @@ export default function Dashboard({ leads, onNavigate }) {
 
   return (
     <div className="dashboard">
+      {/* User Profile Section */}
+      <div className="user-profile-section">
+        <div className="user-profile-header">
+          <div className="user-avatar-large">{currentUser?.name?.[0] || '?'}</div>
+          <div className="user-profile-info">
+            <h3>{currentUser?.name || 'User'}</h3>
+            <span className="user-role">{currentUser?.role || 'Member'}</span>
+          </div>
+        </div>
+        <div className="quick-actions-row">
+          <button className="action-btn" onClick={onShowSettings}>
+            ⚙️ Settings
+          </button>
+          {isAdmin && (
+            <button className="action-btn" onClick={onShowTeam}>
+              👥 Team
+            </button>
+          )}
+          <button className="action-btn logout" onClick={onLogout}>
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+
       <div className="dashboard-header">
         <h2>📊 Dashboard</h2>
         <p className="dashboard-subtitle">Overview of your sales pipeline</p>
