@@ -3,6 +3,7 @@ import './CRM.css';
 import { initFirebase, isFirebaseConfigured, saveLead, updateFirebaseLead, subscribeToLeads, deleteLead } from './firebase';
 import Dashboard from './components/Dashboard';
 import LeadDetailModal from './components/LeadDetailModal';
+import TeamSheet from './components/TeamSheet';
 import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from './components/UserRoles';
 
 // Lead status options
@@ -901,6 +902,7 @@ export default function CRM() {
             <div className="tabs">
               <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>📊 Home</button>
               <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
+              <button className={tab === 'sheet' ? 'active' : ''} onClick={() => setTab('sheet')}>📑 Team Sheet</button>
               <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>🔍 Search</button>
             </div>
           )}
@@ -919,6 +921,16 @@ export default function CRM() {
                 onNavigate={(lead) => {
                   setSelectedLead(lead);
                   setTab('leads');
+                }}
+              />
+            )}
+            {tab === 'sheet' && (
+              <TeamSheet
+                leads={leads}
+                team={team}
+                currentUser={currentUser}
+                onSelectLead={(lead) => {
+                  setSelectedLead(lead);
                 }}
               />
             )}
