@@ -112,16 +112,16 @@ export default function LandingPage() {
           </div>
           <div className="hero-visual">
             <div className="floating-card card-1">
-              <i className="fas fa-code"></i>
-              <span>Clean Code</span>
+              <i className="fas fa-globe"></i>
+              <span>Custom Websites</span>
             </div>
             <div className="floating-card card-2">
-              <i className="fas fa-mobile-alt"></i>
-              <span>Mobile First</span>
+              <i className="fas fa-code"></i>
+              <span>Software Builds</span>
             </div>
             <div className="floating-card card-3">
-              <i className="fas fa-rocket"></i>
-              <span>Fast & Secure</span>
+              <i className="fas fa-headset"></i>
+              <span>24/7 Support</span>
             </div>
           </div>
         </div>
@@ -406,7 +406,7 @@ export default function LandingPage() {
                 <div className="contact-icon"><i className="fas fa-envelope"></i></div>
                 <div className="contact-details">
                   <h4>Email Us</h4>
-                  <a href="mailto:javflores.ct@gmail.com">javflores.ct@gmail.com</a>
+                  <a href="mailto:njdevelopments123@gmail.com">njdevelopments123@gmail.com</a>
                 </div>
               </div>
               <div className="contact-card">
@@ -486,7 +486,7 @@ export default function LandingPage() {
             <div className="footer-contact">
               <h4>Contact</h4>
               <ul>
-                <li><a href="mailto:javflores.ct@gmail.com"><i className="fas fa-envelope"></i> javflores.ct@gmail.com</a></li>
+                <li><a href="mailto:njdevelopments123@gmail.com"><i className="fas fa-envelope"></i> njdevelopments123@gmail.com</a></li>
                 <li><a href="tel:860-987-7606"><i className="fas fa-phone"></i> 860-987-7606</a></li>
               </ul>
             </div>
