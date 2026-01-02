@@ -1,0 +1,344 @@
+.signing-portal {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16162a 100%);
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  color: #e0e0e0;
+}
+
+.signing-portal .portal-container {
+  max-width: 800px;
+  width: 100%;
+}
+
+/* Loading State */
+.signing-portal .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+}
+
+.signing-portal .spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #3a3a5c;
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Not Found */
+.signing-portal .not-found {
+  text-align: center;
+  padding: 60px 20px;
+  background: #16162a;
+  border-radius: 16px;
+  border: 1px solid #3a3a5c;
+}
+
+.signing-portal .not-found-icon {
+  font-size: 60px;
+  display: block;
+  margin-bottom: 20px;
+}
+
+/* Portal Header */
+.signing-portal .portal-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.signing-portal .portal-header h1 {
+  margin: 0 0 5px 0;
+  font-size: 28px;
+  color: #8b5cf6;
+}
+
+.signing-portal .portal-header p {
+  margin: 0;
+  color: #8b8ba7;
+}
+
+/* Signing Complete Banner */
+.signing-complete-banner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  margin-bottom: 25px;
+}
+
+.complete-icon {
+  font-size: 40px;
+}
+
+.signing-complete-banner h3 {
+  margin: 0 0 5px 0;
+  color: #22c55e;
+}
+
+.signing-complete-banner p {
+  margin: 0;
+  color: #8b8ba7;
+}
+
+/* Contract Card */
+.signing-portal .contract-card {
+  background: #16162a;
+  border: 1px solid #3a3a5c;
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+}
+
+.signing-portal .contract-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #3a3a5c;
+}
+
+.signing-portal .contract-label {
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.signing-portal .contract-title {
+  margin: 5px 0 0 0;
+  font-size: 22px;
+  color: #8b5cf6;
+}
+
+.signing-portal .status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: white;
+  font-weight: 500;
+}
+
+/* Parties */
+.contract-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 25px;
+  padding: 20px;
+  background: #1a1a2e;
+  border-radius: 12px;
+}
+
+@media (max-width: 600px) {
+  .contract-parties {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.party h4 {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.party-name {
+  font-weight: 600;
+  font-size: 16px !important;
+  margin-bottom: 5px !important;
+}
+
+.party p {
+  margin: 3px 0;
+  font-size: 14px;
+  color: #a0a0c0;
+}
+
+/* Contract Content */
+.contract-content {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.contract-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Georgia', serif;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #c0c0d0;
+}
+
+/* Signature Section (Signed) */
+.signature-section {
+  padding: 25px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.signature-section h4 {
+  margin: 0 0 15px 0;
+  color: #22c55e;
+  font-size: 18px;
+}
+
+.signature-display {
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  display: inline-block;
+  margin-bottom: 15px;
+}
+
+.signature-display img {
+  max-width: 200px;
+  height: auto;
+}
+
+.signature-date {
+  color: #8b8ba7;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.download-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+/* Expired Notice */
+.expired-notice {
+  padding: 30px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.expired-icon {
+  font-size: 50px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.expired-notice h3 {
+  margin: 0 0 10px 0;
+  color: #f59e0b;
+}
+
+.expired-notice p {
+  margin: 0;
+  color: #8b8ba7;
+}
+
+/* Signing Area */
+.signing-area {
+  padding: 25px;
+  background: #1a1a2e;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.terms-agreement {
+  margin-bottom: 20px;
+}
+
+.terms-agreement label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.terms-agreement input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: #8b5cf6;
+}
+
+.terms-agreement span {
+  font-size: 14px;
+  color: #a0a0c0;
+  line-height: 1.5;
+}
+
+.sign-btn {
+  padding: 16px 40px;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sign-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+.sign-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Signature Pad Section */
+.signature-pad-section {
+  padding: 25px;
+  background: #1a1a2e;
+  border-radius: 12px;
+}
+
+.signature-pad-section h3 {
+  margin: 0 0 20px 0;
+  text-align: center;
+  color: #8b5cf6;
+}
+
+/* Footer */
+.signing-portal .portal-footer {
+  text-align: center;
+  color: #8b8ba7;
+  font-size: 13px;
+}
+
+.signing-portal .portal-footer p {
+  margin: 5px 0;
+}

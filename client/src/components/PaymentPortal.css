@@ -1,0 +1,494 @@
+.payment-portal {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16162a 100%);
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  color: #e0e0e0;
+}
+
+.portal-container {
+  max-width: 700px;
+  width: 100%;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #3a3a5c;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Not Found */
+.not-found {
+  text-align: center;
+  padding: 60px 20px;
+  background: #16162a;
+  border-radius: 16px;
+  border: 1px solid #3a3a5c;
+}
+
+.not-found-icon {
+  font-size: 60px;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.not-found h2 {
+  margin: 0 0 10px 0;
+}
+
+.not-found p {
+  color: #8b8ba7;
+}
+
+/* Portal Header */
+.portal-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.portal-header h1 {
+  margin: 0 0 5px 0;
+  font-size: 28px;
+  color: #3b82f6;
+}
+
+.portal-header p {
+  margin: 0;
+  color: #8b8ba7;
+}
+
+/* Invoice Card */
+.invoice-card {
+  background: #16162a;
+  border: 1px solid #3a3a5c;
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+}
+
+.invoice-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #3a3a5c;
+}
+
+.invoice-label {
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.invoice-number {
+  margin: 5px 0 0 0;
+  font-size: 24px;
+  color: #3b82f6;
+}
+
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: white;
+  font-weight: 500;
+}
+
+/* Info Grid */
+.invoice-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 25px;
+}
+
+@media (max-width: 600px) {
+  .invoice-info-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.info-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.info-section p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.client-name {
+  font-weight: 600;
+  font-size: 16px !important;
+}
+
+.overdue-notice {
+  color: #ef4444 !important;
+  font-weight: 500;
+}
+
+/* Services Table */
+.services-section {
+  margin-bottom: 25px;
+}
+
+.services-section h4 {
+  margin: 0 0 15px 0;
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.services-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.services-table th {
+  background: #1a1a2e;
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.services-table td {
+  padding: 12px;
+  border-bottom: 1px solid #2a2a4a;
+  font-size: 14px;
+}
+
+.services-table th:last-child,
+.services-table td:last-child {
+  text-align: right;
+}
+
+/* Totals */
+.totals-section {
+  padding-top: 20px;
+  border-top: 1px solid #3a3a5c;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.totals-row.discount span:last-child {
+  color: #22c55e;
+}
+
+.totals-row.total {
+  font-size: 16px;
+  font-weight: 600;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid #3a3a5c;
+}
+
+.totals-row.paid span:last-child {
+  color: #22c55e;
+}
+
+.totals-row.balance {
+  font-size: 20px;
+  font-weight: 700;
+  color: #3b82f6;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 2px solid #3b82f6;
+}
+
+/* Notes */
+.notes-section {
+  margin-top: 25px;
+  padding: 15px;
+  background: #1a1a2e;
+  border-radius: 8px;
+}
+
+.notes-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #8b8ba7;
+  text-transform: uppercase;
+}
+
+.notes-section p {
+  margin: 0;
+  font-size: 14px;
+  color: #8b8ba7;
+}
+
+/* Payment Section */
+.payment-section {
+  background: #16162a;
+  border: 2px solid #3b82f6;
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+}
+
+.payment-section h3 {
+  margin: 0 0 20px 0;
+  text-align: center;
+  color: #3b82f6;
+}
+
+.payment-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.payment-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  background: #1a1a2e;
+  border: 2px solid #3a3a5c;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.payment-option:hover {
+  border-color: #3b82f6;
+}
+
+.payment-option.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.option-label {
+  font-size: 13px;
+  color: #8b8ba7;
+  margin-bottom: 5px;
+}
+
+.option-amount {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.payment-option.active .option-amount {
+  color: #3b82f6;
+}
+
+.custom-amount {
+  margin-bottom: 20px;
+}
+
+.custom-amount label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #8b8ba7;
+}
+
+.custom-amount input {
+  width: 100%;
+  padding: 15px;
+  font-size: 24px;
+  text-align: center;
+  border-radius: 12px;
+  border: 2px solid #3a3a5c;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  box-sizing: border-box;
+}
+
+.custom-amount input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.pay-now-btn {
+  width: 100%;
+  padding: 18px;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.pay-now-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+.pay-now-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.secure-badge {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 13px;
+  color: #8b8ba7;
+}
+
+/* Paid Section */
+.paid-section {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.paid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 30px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid #22c55e;
+  border-radius: 50px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.paid-icon {
+  font-size: 24px;
+}
+
+.paid-date {
+  margin-top: 10px;
+  color: #8b8ba7;
+}
+
+/* Payment Result */
+.payment-result {
+  text-align: center;
+  padding: 60px 30px;
+  background: #16162a;
+  border-radius: 16px;
+  border: 1px solid #3a3a5c;
+}
+
+.result-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.payment-result h2 {
+  margin: 0 0 10px 0;
+  font-size: 28px;
+}
+
+.payment-result.success h2 {
+  color: #22c55e;
+}
+
+.payment-result.cancelled h2 {
+  color: #ef4444;
+}
+
+.payment-result p {
+  color: #8b8ba7;
+  margin: 0 0 20px 0;
+}
+
+.payment-details {
+  background: #1a1a2e;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.payment-details p {
+  margin: 8px 0;
+}
+
+.receipt-note {
+  font-size: 13px;
+  color: #8b8ba7 !important;
+}
+
+.view-invoice-btn,
+.try-again-btn {
+  padding: 14px 30px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 20px;
+}
+
+.view-invoice-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.try-again-btn {
+  background: #3a3a5c;
+  color: #e0e0e0;
+}
+
+.view-invoice-btn:hover,
+.try-again-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Footer */
+.portal-footer {
+  text-align: center;
+  color: #8b8ba7;
+  font-size: 13px;
+}
+
+.portal-footer p {
+  margin: 5px 0;
+}
