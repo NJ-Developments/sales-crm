@@ -5,6 +5,8 @@ import { initFirebase, isFirebaseConfigured, saveLead, updateFirebaseLead, subsc
 import Dashboard from './components/Dashboard';
 import LeadDetailModal from './components/LeadDetailModal';
 import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from './components/UserRoles';
+import InvoiceGenerator from './components/InvoiceGenerator';
+import ContractGenerator from './components/ContractGenerator';
 
 // Lead status options
 const LEAD_STATUSES = [
@@ -1195,6 +1197,8 @@ export default function CRM() {
             <div className="tabs">
               <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>📊 Home</button>
               <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
+              <button className={tab === 'invoices' ? 'active' : ''} onClick={() => setTab('invoices')}>💰 Invoices</button>
+              <button className={tab === 'contracts' ? 'active' : ''} onClick={() => setTab('contracts')}>📝 Contracts</button>
               <button onClick={() => navigate('/sheet')}>📑 Sheet</button>
               <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>🔍 Find</button>
             </div>
@@ -1225,6 +1229,12 @@ export default function CRM() {
                 onUpdateMember={updateTeamMember}
                 onRemoveMember={removeTeamMember}
               />
+            )}
+            {tab === 'invoices' && (
+              <InvoiceGenerator leads={visibleLeads} currentUser={currentUser} />
+            )}
+            {tab === 'contracts' && (
+              <ContractGenerator leads={visibleLeads} currentUser={currentUser} />
             )}
             {tab === 'search' && (
               <div className="search-section">
