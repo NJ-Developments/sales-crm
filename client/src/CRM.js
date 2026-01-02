@@ -4,7 +4,18 @@ import './CRM.css';
 import { initFirebase, isFirebaseConfigured, saveLead, updateFirebaseLead, subscribeToLeads, deleteLead } from './firebase';
 import Dashboard from './components/Dashboard';
 import LeadDetailModal from './components/LeadDetailModal';
+import FacebookLeadModal from './components/FacebookLeadModal';
+import './components/FacebookLeadModal.css';
+import TeamSheet from './components/TeamSheet';
+import './components/TeamSheet.css';
 import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from './components/UserRoles';
+
+// Lead sources
+const LEAD_SOURCES = {
+  google_maps: { label: '🗺️ Google Maps', color: '#ea4335', icon: '🗺️' },
+  facebook: { label: '📘 Facebook', color: '#1877f2', icon: '📘' },
+  manual: { label: '✏️ Manual', color: '#a855f7', icon: '✏️' },
+};
 
 // Lead status options
 const LEAD_STATUSES = [
@@ -119,7 +130,7 @@ export default function CRM() {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [tab, setTab] = useState('leads');
+  const [tab, setTab] = useState('map');
   const [filters, setFilters] = useState({ noWeb: false, noPhone: false, notCalled: false, status: '', maxReviews: '', sortBy: 'newest' });
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('mapsApiKey') || '');
   const [keyInput, setKeyInput] = useState('');
@@ -150,6 +161,37 @@ export default function CRM() {
   const [showSettings, setShowSettings] = useState(false);
   const [sheetsUrlInput, setSheetsUrlInput] = useState(() => localStorage.getItem('sheetsUrl') || '');
   
+  // Facebook lead modal
+  const [showFacebookModal, setShowFacebookModal] = useState(false);
+  
+  // Source filter (all, google_maps, facebook, manual)
+  const [sourceFilter, setSourceFilter] = useState('all');
+  
+  // Saved Facebook Groups - persist to localStorage
+  const [savedFbGroups, setSavedFbGroups] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('savedFbGroups') || '[]');
+    } catch { return []; }
+  });
+  const [newGroupUrl, setNewGroupUrl] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  
+  // Save FB groups to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('savedFbGroups', JSON.stringify(savedFbGroups));
+  }, [savedFbGroups]);
+  
+  // Calling mode - for focused calling sessions
+  const [callingMode, setCallingMode] = useState(false);
+  const [currentCallIndex, setCurrentCallIndex] = useState(0);
+  
+  // Quick-add Facebook lead (inline form)
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddData, setQuickAddData] = useState({ name: '', phone: '', address: '', notes: '' });
+  
+  // Map search panel open (for unified leads view)
+  const [mapSearchOpen, setMapSearchOpen] = useState(true);
+  
   // Firebase is hardcoded and always connected
   const firebaseConnected = true;
   
@@ -170,6 +212,13 @@ export default function CRM() {
   // Keep refs in sync with state
   useEffect(() => { pinDropModeRef.current = pinDropMode; }, [pinDropMode]);
   useEffect(() => { radiusRef.current = radius; }, [radius]);
+  
+  // Update search circle when radius changes (if there's a dropped pin)
+  useEffect(() => {
+    if (droppedPin && mapInstance.current) {
+      updateSearchCircle(droppedPin, radius);
+    }
+  }, [radius, droppedPin]);
 
   // Track if update came from Firebase to prevent re-sync
   const isFirebaseUpdate = useRef(false);
@@ -299,7 +348,7 @@ export default function CRM() {
     if (!apiKey) return;
     
     // Check if Google Maps is already loaded
-    if (window.google?.maps) { 
+    if (window.google?.maps?.Map) { 
       initMap(); 
       return; 
     }
@@ -307,17 +356,28 @@ export default function CRM() {
     // Check if script is already being loaded
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      existingScript.addEventListener('load', initMap);
-      return;
+      // Wait for google.maps.Map to be available
+      const checkLoaded = setInterval(() => {
+        if (window.google?.maps?.Map) {
+          clearInterval(checkLoaded);
+          initMap();
+        }
+      }, 100);
+      return () => clearInterval(checkLoaded);
     }
     
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      // Small delay to ensure Google Maps is fully initialized
-      setTimeout(initMap, 100);
+      // Wait for google.maps.Map to be available
+      const checkLoaded = setInterval(() => {
+        if (window.google?.maps?.Map) {
+          clearInterval(checkLoaded);
+          initMap();
+        }
+      }, 100);
     };
     script.onerror = () => alert('Failed to load Google Maps. Check your API key.');
     document.head.appendChild(script);
@@ -551,6 +611,7 @@ export default function CRM() {
         id: p.place_id, name: p.name, address: p.formatted_address,
         lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
         phone: null, website: null, 
+        source: 'google_maps',   // Lead source
         status: 'NEW',           // Lead status
         notes: '',               // User notes
         addedBy: currentUser?.name || 'Unknown',       // Who added this lead
@@ -653,6 +714,7 @@ export default function CRM() {
         id: p.place_id, name: p.name, address: p.vicinity || p.formatted_address,
         lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
         phone: null, website: null, 
+        source: 'google_maps',   // Lead source
         status: 'NEW',
         notes: '',
         addedBy: currentUser?.name || 'Unknown',
@@ -985,11 +1047,26 @@ export default function CRM() {
     }).catch(err => console.error('Copy failed:', err));
   }
 
+  // Add Facebook lead
+  function addFacebookLead(lead) {
+    // Add to leads and auto-save to Firebase since it's manually entered
+    setLeads(prev => {
+      const updated = [...prev, lead];
+      // Save to Firebase immediately
+      if (firebaseConnected) {
+        saveLead(lead);
+      }
+      return updated;
+    });
+  }
+
   // Filter leads based on user permissions
   const visibleLeads = leads.filter(lead => canViewLead(lead));
 
-  // Filter leads based on current filters, search, AND user permissions
+  // Filter leads based on current filters, search, source, AND user permissions
   const filtered = visibleLeads.filter(l => {
+    // Source filter
+    if (sourceFilter !== 'all' && l.source !== sourceFilter) return false;
     // Text search filter
     if (leadSearch) {
       const searchLower = leadSearch.toLowerCase();
@@ -1020,6 +1097,41 @@ export default function CRM() {
 
   // Get only marked leads (not NEW)
   const markedLeads = visibleLeads.filter(l => l.isLead);
+
+  // Get leads for calling mode (filtered, with phone, not rejected/closed)
+  const callableLeads = useMemo(() => {
+    return filtered.filter(l => 
+      l.phone && 
+      l.status !== 'REJECTED' && 
+      l.status !== 'CLOSED'
+    );
+  }, [filtered]);
+
+  // Current lead in calling mode
+  const currentCallingLead = callingMode && callableLeads.length > 0 
+    ? callableLeads[Math.min(currentCallIndex, callableLeads.length - 1)] 
+    : null;
+
+  // Navigate to next/prev lead in calling mode
+  function nextLead() {
+    if (currentCallIndex < callableLeads.length - 1) {
+      setCurrentCallIndex(prev => prev + 1);
+    }
+  }
+
+  function prevLead() {
+    if (currentCallIndex > 0) {
+      setCurrentCallIndex(prev => prev - 1);
+    }
+  }
+
+  // Quick log call result
+  function quickLogCall(leadId, outcome) {
+    logCall(leadId, outcome, '');
+    updateLeadStatus(leadId, outcome === 'INTERESTED' ? 'INTERESTED' : outcome === 'CALLBACK' ? 'CALLBACK' : 'REJECTED');
+    // Auto-advance to next lead
+    setTimeout(nextLead, 300);
+  }
 
   // Export marked leads to downloadable file
   function exportLeads() {
@@ -1119,6 +1231,15 @@ export default function CRM() {
         />
       )}
       
+      {/* Facebook Lead Modal */}
+      {showFacebookModal && (
+        <FacebookLeadModal
+          onClose={() => setShowFacebookModal(false)}
+          onSave={addFacebookLead}
+          currentUser={currentUser}
+        />
+      )}
+      
       {/* Settings Modal */}
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
@@ -1193,345 +1314,378 @@ export default function CRM() {
           <button className="toggle-btn" onClick={() => setPanelOpen(!panelOpen)}>{panelOpen ? '◀' : '▶'}</button>
           {panelOpen && (
             <div className="tabs">
-              <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>📊 Home</button>
+              <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>🗺️ Find</button>
               <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
-              <button onClick={() => navigate('/sheet')}>📑 Sheet</button>
-              <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>🔍 Find</button>
+              <button className={tab === 'sheet' ? 'active' : ''} onClick={() => setTab('sheet')}>📊 Sheet</button>
+            </div>
+          )}
+          {panelOpen && (
+            <div className="header-actions">
+              <a href="/" className="icon-btn" title="Back to Home">🏠</a>
+              <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
             </div>
           )}
         </div>
         {panelOpen && (
           <div className="panel-body">
-            {tab === 'dashboard' && (
-              <Dashboard 
-                leads={visibleLeads} 
-                currentUser={currentUser}
-                team={team}
-                onLogout={logout}
-                onShowSettings={() => setShowSettings(true)}
-                onShowTeam={() => setTab('team')}
-                isAdmin={isAdmin()}
-                onNavigate={(lead) => {
-                  setSelectedLead(lead);
-                  setTab('leads');
-                }}
-              />
-            )}
-            {tab === 'team' && (
-              <TeamManagementPanel
-                team={team}
-                currentUser={currentUser}
-                onAddMember={addTeamMember}
-                onUpdateMember={updateTeamMember}
-                onRemoveMember={removeTeamMember}
-              />
-            )}
-            {tab === 'search' && (
-              <div className="search-section">
-                <div className="search-controls">
-                  <div className="control-group">
-                    <label>Industry / Business Type</label>
-                    <select value={businessType} onChange={e => setBusinessType(e.target.value)}>
+            {tab === 'map' && (
+              <div className="map-tab">
+                {/* Search Controls */}
+                <div className="search-controls-card">
+                  <div className="search-row-main">
+                    <select 
+                      value={businessType} 
+                      onChange={e => setBusinessType(e.target.value)} 
+                      className="search-select"
+                    >
+                      <option value="">Select industry...</option>
                       {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
+                    <select 
+                      value={radius} 
+                      onChange={e => setRadius(parseInt(e.target.value))}
+                      className="search-select small"
+                    >
+                      {RADIUS_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
                   </div>
-                  <div className="control-group">
-                    <label>Search Radius</label>
-                    <div className="radius-buttons">
-                      {RADIUS_OPTIONS.map(r => (
-                        <button key={r.value} className={radius === r.value && !customRadius ? 'active' : ''} onClick={() => { setRadius(r.value); setCustomRadius(''); }}>{r.label}</button>
+                  
+                  <div className="search-row-actions">
+                    <button 
+                      className={`action-btn pin ${pinDropMode ? 'active' : ''} ${droppedPin ? 'set' : ''}`}
+                      onClick={() => setPinDropMode(!pinDropMode)}
+                    >
+                      📍 {droppedPin ? 'Pin Set' : pinDropMode ? 'Click Map' : 'Set Location'}
+                    </button>
+                    <button 
+                      className="action-btn search-go"
+                      onClick={() => search()} 
+                      disabled={searching || !businessType}
+                    >
+                      {searching ? '⏳ Searching...' : '🔍 Search Maps'}
+                    </button>
+                  </div>
+                  
+                  {pinDropMode && (
+                    <div className="search-hint">👆 Click anywhere on the map to set search center</div>
+                  )}
+                </div>
+                
+                {/* Saved Facebook Groups */}
+                <div className="fb-groups-card">
+                  <div className="add-lead-header">📘 Saved Facebook Groups</div>
+                  <p className="fb-explainer">Find groups to monitor, save them here, then check for leads:</p>
+                  
+                  {/* Search for groups */}
+                  <div className="fb-search-buttons">
+                    <button 
+                      className="fb-search-btn google"
+                      onClick={() => {
+                        const query = businessType 
+                          ? BUSINESS_TYPES.find(t => t.value === businessType)?.label || businessType 
+                          : 'small business';
+                        const searchUrl = `https://www.facebook.com/groups/search/groups/?q=${encodeURIComponent(query + ' NJ')}`;
+                        window.open(searchUrl, '_blank');
+                      }}
+                    >
+                      🔍 Find Groups on Facebook
+                    </button>
+                  </div>
+                  
+                  {/* Add new group */}
+                  <div className="add-group-form">
+                    <input
+                      type="text"
+                      placeholder="Group name (e.g. 'NJ Landscaping Referrals')"
+                      value={newGroupName}
+                      onChange={e => setNewGroupName(e.target.value)}
+                    />
+                    <input
+                      type="url"
+                      placeholder="Facebook group URL"
+                      value={newGroupUrl}
+                      onChange={e => setNewGroupUrl(e.target.value)}
+                    />
+                    <button 
+                      className="add-group-btn"
+                      disabled={!newGroupName.trim() || !newGroupUrl.trim()}
+                      onClick={() => {
+                        if (!newGroupName.trim() || !newGroupUrl.trim()) return;
+                        setSavedFbGroups(prev => [...prev, {
+                          id: Date.now(),
+                          name: newGroupName.trim(),
+                          url: newGroupUrl.trim(),
+                          addedAt: Date.now()
+                        }]);
+                        setNewGroupName('');
+                        setNewGroupUrl('');
+                      }}
+                    >
+                      ➕ Save Group
+                    </button>
+                  </div>
+                  
+                  {/* Saved groups list */}
+                  {savedFbGroups.length > 0 && (
+                    <div className="saved-groups-list">
+                      <div className="fb-divider"><span>your saved groups</span></div>
+                      {savedFbGroups.map(group => (
+                        <div key={group.id} className="saved-group-item">
+                          <a href={group.url} target="_blank" rel="noopener noreferrer" className="group-link">
+                            📘 {group.name}
+                          </a>
+                          <button 
+                            className="remove-group-btn"
+                            onClick={() => setSavedFbGroups(prev => prev.filter(g => g.id !== group.id))}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       ))}
                     </div>
-                    <div className="custom-radius-row">
-                      <input 
-                        type="number" 
-                        placeholder="Custom miles..." 
-                        value={customRadius}
-                        onChange={e => {
-                          setCustomRadius(e.target.value);
-                          if (e.target.value) {
-                            setRadius(Math.round(parseFloat(e.target.value) * 1609.34)); // Convert miles to meters
-                          }
-                        }}
-                        className="custom-radius-input"
-                      />
-                      <span className="custom-radius-label">mi</span>
-                    </div>
-                  </div>
-                  <div className="control-group">
-                    <label>Search Center</label>
-                    <div className="pin-drop-controls">
-                      <button 
-                        className={`pin-drop-btn ${pinDropMode ? 'active' : ''}`}
-                        onClick={() => setPinDropMode(!pinDropMode)}
-                      >
-                        📍 {pinDropMode ? 'Click Map to Drop Pin' : 'Drop Pin on Map'}
-                      </button>
-                      <button 
-                        className={`locate-btn ${locating ? 'locating' : ''}`}
-                        onClick={locateMe}
-                        disabled={locating}
-                      >
-                        {locating ? '⏳ Locating...' : '📍 Locate Me'}
-                      </button>
-                      {droppedPin && (
-                        <button 
-                          className="clear-pin-btn"
-                          onClick={() => {
-                            setDroppedPin(null);
-                            if (droppedPinMarker.current) {
-                              droppedPinMarker.current.setMap(null);
-                              droppedPinMarker.current = null;
-                            }
-                            if (searchCircle.current) {
-                              searchCircle.current.setMap(null);
-                            }
-                          }}
-                        >
-                          ✕ Clear Pin
-                        </button>
-                      )}
-                    </div>
-                    {droppedPin && (
-                      <div className="pin-location-info">
-                        ✓ Pin placed at {droppedPin.lat.toFixed(4)}, {droppedPin.lng.toFixed(4)}
-                      </div>
-                    )}
-                    {pinDropMode && (
-                      <div className="pin-drop-hint">
-                        👆 Click anywhere on the map to set search center
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-                <button className="search-btn" onClick={() => search()} disabled={searching || !businessType}>
-                  {searching ? '🔄 Searching...' : `🔍 Search ${droppedPin ? 'From Pin' : 'This Area'}`}
-                </button>
-                <div className="search-hint">
-                  <span>{droppedPin ? '📍 Searching from dropped pin location' : '📍 Pan the map or drop a pin to search different areas'}</span>
+
+                {/* Quick Add Lead - Super Simple */}
+                <div className="quick-add-card">
+                  <div className="quick-add-row">
+                    <input
+                      type="text"
+                      placeholder="Business name"
+                      value={quickAddData.name}
+                      onChange={e => setQuickAddData(prev => ({ ...prev, name: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && quickAddData.name.trim()) {
+                          const lead = {
+                            id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            name: quickAddData.name.trim(),
+                            phone: quickAddData.phone.trim() || null,
+                            address: 'Facebook Lead',
+                            lat: null,
+                            lng: null,
+                            website: null,
+                            source: 'facebook',
+                            sourceDetails: {},
+                            status: 'NEW',
+                            notes: '',
+                            addedBy: currentUser?.name || 'Unknown',
+                            assignedTo: '',
+                            callHistory: [],
+                            addedAt: Date.now(),
+                            lastUpdated: Date.now(),
+                            businessType: businessType || 'other',
+                            isLead: true,
+                            rating: null,
+                            userRatingsTotal: 0,
+                          };
+                          addFacebookLead(lead);
+                          setQuickAddData({ name: '', phone: '' });
+                        }
+                      }}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone"
+                      value={quickAddData.phone}
+                      onChange={e => setQuickAddData(prev => ({ ...prev, phone: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && quickAddData.name.trim()) {
+                          const lead = {
+                            id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            name: quickAddData.name.trim(),
+                            phone: quickAddData.phone.trim() || null,
+                            address: 'Facebook Lead',
+                            lat: null,
+                            lng: null,
+                            website: null,
+                            source: 'facebook',
+                            sourceDetails: {},
+                            status: 'NEW',
+                            notes: '',
+                            addedBy: currentUser?.name || 'Unknown',
+                            assignedTo: '',
+                            callHistory: [],
+                            addedAt: Date.now(),
+                            lastUpdated: Date.now(),
+                            businessType: businessType || 'other',
+                            isLead: true,
+                            rating: null,
+                            userRatingsTotal: 0,
+                          };
+                          addFacebookLead(lead);
+                          setQuickAddData({ name: '', phone: '' });
+                        }
+                      }}
+                    />
+                    <button 
+                      className="quick-add-btn"
+                      disabled={!quickAddData.name.trim()}
+                      onClick={() => {
+                        if (!quickAddData.name.trim()) return;
+                        const lead = {
+                          id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                          name: quickAddData.name.trim(),
+                          phone: quickAddData.phone.trim() || null,
+                          address: 'Facebook Lead',
+                          lat: null,
+                          lng: null,
+                          website: null,
+                          source: 'facebook',
+                          sourceDetails: {},
+                          status: 'NEW',
+                          notes: '',
+                          addedBy: currentUser?.name || 'Unknown',
+                          assignedTo: '',
+                          callHistory: [],
+                          addedAt: Date.now(),
+                          lastUpdated: Date.now(),
+                          businessType: businessType || 'other',
+                          isLead: true,
+                          rating: null,
+                          userRatingsTotal: 0,
+                        };
+                        addFacebookLead(lead);
+                        setQuickAddData({ name: '', phone: '' });
+                      }}
+                    >
+                      ➕
+                    </button>
+                  </div>
+                  <div className="quick-add-hint">📘 Type name + phone, press Enter or click ➕</div>
+                </div>
+                
+                {/* Quick Stats */}
+                <div className="quick-stats">
+                  <div className="stat-item">
+                    <span className="stat-value">{leads.length}</span>
+                    <span className="stat-label">Total Leads</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">{leads.filter(l => l.status === 'NEW').length}</span>
+                    <span className="stat-label">New</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">{leads.filter(l => l.status === 'INTERESTED').length}</span>
+                    <span className="stat-label">Interested</span>
+                  </div>
                 </div>
               </div>
             )}
             {tab === 'leads' && (
-              <>
-                {/* Search Input */}
-                <div className="lead-search-container">
+              <div className="leads-tab">
+                {/* Search Bar */}
+                <div className="leads-search-bar">
                   <input
-                    id="lead-search-input"
                     type="text"
-                    placeholder="🔍 Search leads by name, address, or phone..."
+                    placeholder="🔍 Search leads..."
                     value={leadSearch}
                     onChange={e => setLeadSearch(e.target.value)}
-                    className="lead-search-input"
                   />
                   {leadSearch && (
-                    <button className="clear-search-btn" onClick={() => setLeadSearch('')}>×</button>
+                    <button className="clear-btn" onClick={() => setLeadSearch('')}>×</button>
                   )}
                 </div>
                 
-                <div className="filters">
-                  <label><input type="checkbox" checked={filters.noWeb} onChange={() => setFilters(f => ({ ...f, noWeb: !f.noWeb }))} /> No Website</label>
-                  <label><input type="checkbox" checked={filters.noPhone} onChange={() => setFilters(f => ({ ...f, noPhone: !f.noPhone }))} /> No Phone</label>
-                  <label><input type="checkbox" checked={filters.notCalled} onChange={() => setFilters(f => ({ ...f, notCalled: !f.notCalled }))} /> New Only</label>
-                </div>
-                <div className="filters">
-                  <select 
-                    className="status-filter"
-                    value={filters.status} 
-                    onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                {/* Status Filter Tabs */}
+                <div className="status-tabs">
+                  <button 
+                    className={filters.status === '' ? 'active' : ''}
+                    onClick={() => setFilters(f => ({ ...f, status: '' }))}
                   >
-                    <option value="">All Statuses</option>
-                    {LEAD_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                  <select 
-                    className="status-filter"
-                    value={filters.sortBy} 
-                    onChange={e => setFilters(f => ({ ...f, sortBy: e.target.value }))}
+                    All <span className="cnt">{leads.length}</span>
+                  </button>
+                  <button 
+                    className={filters.status === 'NEW' ? 'active' : ''}
+                    onClick={() => setFilters(f => ({ ...f, status: 'NEW' }))}
                   >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="reviews-low">Reviews: Low→High</option>
-                    <option value="reviews-high">Reviews: High→Low</option>
-                    <option value="rating-low">Rating: Low→High</option>
-                    <option value="rating-high">Rating: High→Low</option>
-                    <option value="name">Name A-Z</option>
-                    <option value="score">Lead Score</option>
-                  </select>
+                    New <span className="cnt">{leads.filter(l => l.status === 'NEW').length}</span>
+                  </button>
+                  <button 
+                    className={filters.status === 'CALLBACK' ? 'active' : ''}
+                    onClick={() => setFilters(f => ({ ...f, status: 'CALLBACK' }))}
+                  >
+                    Callback <span className="cnt">{leads.filter(l => l.status === 'CALLBACK').length}</span>
+                  </button>
+                  <button 
+                    className={filters.status === 'INTERESTED' ? 'active' : ''}
+                    onClick={() => setFilters(f => ({ ...f, status: 'INTERESTED' }))}
+                  >
+                    Hot <span className="cnt">{leads.filter(l => l.status === 'INTERESTED').length}</span>
+                  </button>
                 </div>
                 
-                {/* Bulk Actions Bar */}
-                <div className="bulk-actions-bar">
-                  <div className="bulk-left">
-                    <button 
-                      className={`bulk-toggle-btn ${bulkMode ? 'active' : ''}`}
-                      onClick={() => {
-                        setBulkMode(!bulkMode);
-                        if (bulkMode) setSelectedLeadIds(new Set());
-                      }}
-                    >
-                      {bulkMode ? '✕ Cancel' : '☑️ Select'}
-                    </button>
-                    {bulkMode && (
-                      <>
-                        <button className="bulk-select-all" onClick={selectAllFiltered}>
-                          Select All ({filtered.length})
-                        </button>
-                        <span className="bulk-count">{selectedLeadIds.size} selected</span>
-                      </>
-                    )}
-                  </div>
-                  {bulkMode && selectedLeadIds.size > 0 && (
-                    <div className="bulk-right">
-                      <button className="bulk-lead-btn" onClick={() => bulkMarkAsLead(true)}>📋 Add to Sheet</button>
-                      <select 
-                        className="bulk-status-select"
-                        onChange={e => { if (e.target.value) bulkUpdateStatus(e.target.value); }}
-                        defaultValue=""
-                      >
-                        <option value="">Set Status...</option>
-                        {LEAD_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                      <button className="bulk-delete-btn" onClick={bulkDelete}>🗑️ Delete</button>
+                {/* Quick Filters */}
+                <div className="quick-filters">
+                  <button 
+                    className={`filter-chip ${filters.noWeb ? 'active' : ''}`}
+                    onClick={() => setFilters(f => ({ ...f, noWeb: !f.noWeb }))}
+                  >
+                    🌐 No Website
+                  </button>
+                  <button 
+                    className={`filter-chip ${sourceFilter === 'google_maps' ? 'active' : ''}`}
+                    onClick={() => setSourceFilter(sourceFilter === 'google_maps' ? 'all' : 'google_maps')}
+                  >
+                    🗺️ Maps Only
+                  </button>
+                </div>
+                
+                {/* Scrollable Lead List */}
+                <div className="leads-list">
+                  {filtered.length === 0 && (
+                    <div className="empty-state">
+                      {leadSearch ? 'No leads match your search' : 'No leads yet. Go to Find tab to search!'}
                     </div>
                   )}
-                </div>
-                
-                <div className="list-header">
-                  <span className="lead-count">{filtered.length} of {leads.length} leads {markedLeads.length > 0 && `(${markedLeads.length} on sheet)`}</span>
-                  <div className="list-actions">
-                    {markedLeads.length > 0 && <button className="export-btn" onClick={exportLeads}>📥 Export</button>}
-                    {leads.length > 0 && <button className="clear-all-btn" onClick={clearAllLeads}>Clear All</button>}
-                  </div>
-                </div>
-                <div className="list">
-                  {filtered.length === 0 && <div className="empty">{leadSearch ? 'No leads match your search' : 'No leads yet. Search to add some!'}</div>}
                   {filtered.map(lead => {
                     const statusObj = LEAD_STATUSES.find(s => s.value === lead.status) || LEAD_STATUSES[0];
-                    const isMenuOpen = openMenuId === lead.id;
-                    const score = getLeadScore(lead);
-                    const isSelected = selectedLeadIds.has(lead.id);
                     return (
                       <div 
                         key={lead.id} 
-                        className={`item ${lead.status === 'INTERESTED' || lead.status === 'CLOSED' ? 'done' : ''} ${isSelected ? 'selected' : ''}`}
+                        className={`lead-card ${lead.status === 'INTERESTED' ? 'hot' : ''}`}
+                        onClick={() => setSelectedLead(lead)}
                       >
-                        {bulkMode && (
-                          <div className="bulk-checkbox" onClick={() => toggleLeadSelection(lead.id)}>
-                            <input type="checkbox" checked={isSelected} readOnly />
-                          </div>
-                        )}
-                        <div className="status-indicator" style={{ background: statusObj.color }} title={statusObj.label}></div>
-                        <div className="item-info" onClick={() => !bulkMode && setSelectedLead(lead)} style={{ cursor: bulkMode ? 'default' : 'pointer' }}>
-                          <div className="item-name-row">
-                            <span className="item-name">{lead.name}</span>
-                            <span className={`lead-score score-${score >= 70 ? 'hot' : score >= 50 ? 'warm' : 'cold'}`} title="Lead Score">
-                              {score}
-                            </span>
-                          </div>
-                          <div className="item-addr">{lead.address}</div>
-                          
-                          {/* Quick Contact Row */}
-                          <div className="quick-contact-row">
-                            {lead.phone && (
-                              <>
-                                <a href={`tel:${lead.phone}`} className="quick-call-btn" onClick={e => e.stopPropagation()} title="Call">
-                                  📞 {lead.phone}
-                                </a>
-                                <button 
-                                  className="copy-btn" 
-                                  onClick={(e) => { e.stopPropagation(); copyToClipboard(lead.phone, 'Phone'); }}
-                                  title="Copy phone"
-                                >
-                                  📋
-                                </button>
-                              </>
-                            )}
-                            <button 
-                              className="copy-btn" 
-                              onClick={(e) => { e.stopPropagation(); copyToClipboard(lead.address, 'Address'); }}
-                              title="Copy address"
-                            >
-                              📍
-                            </button>
-                          </div>
-                          
-                          <div className="item-tags">
-                            {lead.isLead && <span className="tag lead-tag">📋 Lead</span>}
-                            {lead.status !== 'NEW' && <span className="tag status-tag" style={{ background: statusObj.color + '33', color: statusObj.color }}>{statusObj.label}</span>}
-                            {lead.userRatingsTotal > 0 && <span className="tag ok">⭐ {lead.userRatingsTotal}</span>}
-                            {!lead.phone && <span className="tag bad">No 📞</span>}
-                            {!lead.website && <span className="tag hot">No 🌐</span>}
-                            {lead.status === 'NEW' && <span className="tag new-tag">N</span>}
-                            {lead.notes && <span className="tag ok">📝</span>}
-                          </div>
+                        <div className="lead-card-header">
+                          <span className="lead-name">{lead.name}</span>
+                          <span className={`lead-status ${lead.status.toLowerCase()}`}>
+                            {statusObj.label}
+                          </span>
                         </div>
-                        <div className="action-menu-container">
-                          <button 
-                            className="menu-trigger" 
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              setOpenMenuId(isMenuOpen ? null : lead.id);
-                              setQuickNote(lead.notes || '');
-                            }}
-                          >
-                            ⋮
-                          </button>
-                          {isMenuOpen && (
-                            <div className="action-dropdown" onClick={e => e.stopPropagation()}>
-                              <button 
-                                className={`mark-lead-btn ${lead.isLead ? 'marked' : ''}`}
-                                onClick={() => {
-                                  toggleMarkAsLead(lead.id);
-                                }}
-                              >
-                                {lead.isLead ? '✅ On Sheet' : '📋 Add to Sheet'}
-                              </button>
-                              <div className="dropdown-header">Mark as:</div>
-                              <div className="dropdown-statuses">
-                                {LEAD_STATUSES.filter(s => s.value !== 'NEW').map(s => (
-                                  <button 
-                                    key={s.value}
-                                    className={`dropdown-status-btn ${lead.status === s.value ? 'active' : ''}`}
-                                    style={{ '--status-color': s.color }}
-                                    onClick={() => {
-                                      updateLeadStatus(lead.id, s.value);
-                                    }}
-                                  >
-                                    {s.label}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="dropdown-notes">
-                                <textarea 
-                                  placeholder="Add notes..."
-                                  value={quickNote}
-                                  onChange={e => setQuickNote(e.target.value)}
-                                  rows={2}
-                                />
-                                <button 
-                                  className="save-note-btn"
-                                  onClick={() => {
-                                    updateLead(lead.id, { notes: quickNote });
-                                    setOpenMenuId(null);
-                                  }}
-                                >
-                                  💾 Save
-                                </button>
-                              </div>
-                              <button 
-                                className="dropdown-delete"
-                                onClick={() => { removeLead(lead.id); setOpenMenuId(null); }}
-                              >
-                                🗑️ Delete Lead
-                              </button>
-                            </div>
+                        <div className="lead-card-body">
+                          <span className="lead-address">📍 {lead.address}</span>
+                          {lead.phone && (
+                            <a 
+                              href={`tel:${lead.phone}`} 
+                              className="lead-phone"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              📞 {lead.phone}
+                            </a>
                           )}
+                        </div>
+                        <div className="lead-card-footer">
+                          <span className={`source-tag ${lead.source || 'google_maps'}`}>
+                            {lead.source === 'facebook' ? '📘 Facebook' : '🗺️ Maps'}
+                          </span>
+                          {!lead.website && <span className="no-web-tag">No 🌐</span>}
+                          {lead.notes && <span className="has-notes">📝</span>}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </>
+              </div>
+            )}
+            
+            {tab === 'sheet' && (
+              <div className="sheet-tab">
+                <TeamSheet
+                  leads={leads}
+                  team={team}
+                  currentUser={currentUser}
+                  onSelectLead={setSelectedLead}
+                />
+              </div>
             )}
           </div>
         )}

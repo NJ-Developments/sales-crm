@@ -34,12 +34,6 @@ export default function LandingPage() {
     // Update document title
     document.title = 'NJ Developments | Custom Digital Solutions';
 
-    // Load Font Awesome
-    const faLink = document.createElement('link');
-    faLink.rel = 'stylesheet';
-    faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
-    document.head.appendChild(faLink);
-
     // Navbar scroll effect
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -50,9 +44,6 @@ export default function LandingPage() {
     // Cleanup
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      if (document.head.contains(faLink)) {
-        document.head.removeChild(faLink);
-      }
       if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
     };
   }, []);
@@ -186,13 +177,33 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="service-card">
-              <div className="service-icon"><i className="fas fa-chart-line"></i></div>
-              <h3>Growth Strategy</h3>
-              <p>Data-driven insights to help you understand what's working and where to focus for maximum ROI.</p>
+              <div className="service-icon"><i className="fas fa-bullhorn"></i></div>
+              <h3>Marketing & Ads</h3>
+              <p>Targeted advertising campaigns on Google and social media to bring new customers through your door.</p>
               <ul className="service-features">
-                <li><i className="fas fa-check"></i> Analytics Setup</li>
-                <li><i className="fas fa-check"></i> Conversion Tracking</li>
-                <li><i className="fas fa-check"></i> Growth Reports</li>
+                <li><i className="fas fa-check"></i> Google Ads</li>
+                <li><i className="fas fa-check"></i> Facebook & Instagram</li>
+                <li><i className="fas fa-check"></i> ROI Tracking</li>
+              </ul>
+            </div>
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-robot"></i></div>
+              <h3>AI Reception & Chat</h3>
+              <p>24/7 AI-powered chat and phone reception that answers questions, takes orders, and books appointments.</p>
+              <ul className="service-features">
+                <li><i className="fas fa-check"></i> AI Phone Answering</li>
+                <li><i className="fas fa-check"></i> Website Chatbot</li>
+                <li><i className="fas fa-check"></i> Appointment Booking</li>
+              </ul>
+            </div>
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-mobile-alt"></i></div>
+              <h3>App Development</h3>
+              <p>Custom mobile apps for iOS and Android. Loyalty programs, ordering, reservations, and more.</p>
+              <ul className="service-features">
+                <li><i className="fas fa-check"></i> iOS & Android</li>
+                <li><i className="fas fa-check"></i> Push Notifications</li>
+                <li><i className="fas fa-check"></i> Loyalty Programs</li>
               </ul>
             </div>
           </div>
@@ -480,8 +491,9 @@ export default function LandingPage() {
               <ul>
                 <li><a href="#services">Website Development</a></li>
                 <li><a href="#services">Online Ordering</a></li>
-                <li><a href="#services">Custom Platforms</a></li>
-                <li><a href="#services">Google SEO</a></li>
+                <li><a href="#services">Marketing & Ads</a></li>
+                <li><a href="#services">AI Reception</a></li>
+                <li><a href="#services">App Development</a></li>
               </ul>
             </div>
             <div className="footer-contact">

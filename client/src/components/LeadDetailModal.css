@@ -530,6 +530,106 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
+/* Modal Title Row with Source Badge */
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modal-title-row h2 {
+  margin: 0;
+}
+
+.modal-title-row .source-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.source-badge.google_maps {
+  background: rgba(234, 67, 53, 0.15);
+  color: #ea4335;
+  border: 1px solid rgba(234, 67, 53, 0.3);
+}
+
+.source-badge.facebook {
+  background: rgba(24, 119, 242, 0.15);
+  color: #1877f2;
+  border: 1px solid rgba(24, 119, 242, 0.3);
+}
+
+.source-badge.manual {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Facebook Source Info */
+.fb-source-info {
+  padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.1) 0%, rgba(24, 119, 242, 0.05) 100%);
+  border-bottom: 1px solid rgba(24, 119, 242, 0.3);
+}
+
+.fb-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fb-source-label {
+  font-size: 11px;
+  color: #8aaaba;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.fb-source-value {
+  font-size: 13px;
+  color: #fff;
+  font-weight: 500;
+}
+
+.fb-source-link {
+  display: inline-block;
+  padding: 6px 12px;
+  background: rgba(24, 119, 242, 0.2);
+  border: 1px solid rgba(24, 119, 242, 0.4);
+  border-radius: 6px;
+  color: #1877f2;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+
+.fb-source-link:hover {
+  background: rgba(24, 119, 242, 0.3);
+  transform: translateY(-1px);
+}
+
+.fb-post-preview {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(24, 119, 242, 0.2);
+}
+
+.fb-post-content {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: #8aaaba;
+  line-height: 1.5;
+  font-style: italic;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .lead-detail-modal {

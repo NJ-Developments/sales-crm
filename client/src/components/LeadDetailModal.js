@@ -102,7 +102,14 @@ export default function LeadDetailModal({
         {/* Header */}
         <div className="modal-header">
           <div className="modal-title-section">
-            <h2>{lead.name}</h2>
+            <div className="modal-title-row">
+              <h2>{lead.name}</h2>
+              {lead.source && (
+                <span className={`source-badge ${lead.source}`}>
+                  {lead.source === 'facebook' ? '📘 Facebook' : lead.source === 'google_maps' ? '🗺️ Maps' : '✏️ Manual'}
+                </span>
+              )}
+            </div>
             <p className="modal-address">{lead.address}</p>
           </div>
           <div className="modal-header-actions">
@@ -117,6 +124,32 @@ export default function LeadDetailModal({
             <button className="close-btn" onClick={onClose}>×</button>
           </div>
         </div>
+
+        {/* Facebook Source Info (if applicable) */}
+        {lead.source === 'facebook' && lead.sourceDetails && (
+          <div className="fb-source-info">
+            <div className="fb-source-row">
+              <span className="fb-source-label">📘 Group:</span>
+              <span className="fb-source-value">{lead.sourceDetails.groupName || 'Unknown Group'}</span>
+            </div>
+            {lead.sourceDetails.groupUrl && (
+              <a 
+                href={lead.sourceDetails.groupUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="fb-source-link"
+              >
+                🔗 Open in Facebook
+              </a>
+            )}
+            {lead.sourceDetails.postContent && (
+              <div className="fb-post-preview">
+                <span className="fb-source-label">Original Post:</span>
+                <p className="fb-post-content">{lead.sourceDetails.postContent}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Status Bar */}
         <div className="status-bar">
