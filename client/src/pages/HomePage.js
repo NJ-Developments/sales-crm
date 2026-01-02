@@ -58,30 +58,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="stats">
-        <div className="container">
-          <div className="stats-grid">
-            <div className="stat-item">
-              <div className="stat-number">50+</div>
-              <div className="stat-label">Projects Delivered</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">98%</div>
-              <div className="stat-label">Client Satisfaction</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">24/7</div>
-              <div className="stat-label">Support Available</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">5★</div>
-              <div className="stat-label">Google Rating</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="cta-section">
         <div className="container">
