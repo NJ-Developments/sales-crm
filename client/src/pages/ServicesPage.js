@@ -15,7 +15,7 @@ const ServicesPage = () => {
       title: 'Website Development',
       desc: 'Professional, mobile-first websites designed to convert visitors into customers. SEO optimized and lightning fast.',
       features: ['Custom Design', 'Mobile Responsive', 'SEO Optimized', 'Fast Loading'],
-      popular: false
+      popular: true
     },
     {
       icon: 'fas fa-shopping-cart',

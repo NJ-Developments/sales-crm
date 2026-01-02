@@ -1318,7 +1318,6 @@ export default function CRM() {
             <div className="tabs">
               <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>🗺️ Find</button>
               <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
-<<<<<<< HEAD
               <button className={tab === 'sheet' ? 'active' : ''} onClick={() => setTab('sheet')}>📊 Sheet</button>
             </div>
           )}
@@ -1326,18 +1325,11 @@ export default function CRM() {
             <div className="header-actions">
               <a href="/" className="icon-btn" title="Back to Home">🏠</a>
               <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
-=======
-              <button className={tab === 'invoices' ? 'active' : ''} onClick={() => setTab('invoices')}>💰 Invoices</button>
-              <button className={tab === 'contracts' ? 'active' : ''} onClick={() => setTab('contracts')}>📝 Contracts</button>
-              <button onClick={() => navigate('/sheet')}>📑 Sheet</button>
-              <button className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>🔍 Find</button>
->>>>>>> 37be2255557288875c7e891b40e7b0928627af4b
             </div>
           )}
         </div>
         {panelOpen && (
           <div className="panel-body">
-<<<<<<< HEAD
             {tab === 'map' && (
               <div className="map-tab">
                 {/* Search Controls */}
@@ -1349,44 +1341,6 @@ export default function CRM() {
                       className="search-select"
                     >
                       <option value="">Select industry...</option>
-=======
-            {tab === 'dashboard' && (
-              <Dashboard 
-                leads={visibleLeads} 
-                currentUser={currentUser}
-                team={team}
-                onLogout={logout}
-                onShowSettings={() => setShowSettings(true)}
-                onShowTeam={() => setTab('team')}
-                isAdmin={isAdmin()}
-                onNavigate={(lead) => {
-                  setSelectedLead(lead);
-                  setTab('leads');
-                }}
-              />
-            )}
-            {tab === 'team' && (
-              <TeamManagementPanel
-                team={team}
-                currentUser={currentUser}
-                onAddMember={addTeamMember}
-                onUpdateMember={updateTeamMember}
-                onRemoveMember={removeTeamMember}
-              />
-            )}
-            {tab === 'invoices' && (
-              <InvoiceGenerator leads={visibleLeads} currentUser={currentUser} />
-            )}
-            {tab === 'contracts' && (
-              <ContractGenerator leads={visibleLeads} currentUser={currentUser} />
-            )}
-            {tab === 'search' && (
-              <div className="search-section">
-                <div className="search-controls">
-                  <div className="control-group">
-                    <label>Industry / Business Type</label>
-                    <select value={businessType} onChange={e => setBusinessType(e.target.value)}>
->>>>>>> 37be2255557288875c7e891b40e7b0928627af4b
                       {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                     <select 
