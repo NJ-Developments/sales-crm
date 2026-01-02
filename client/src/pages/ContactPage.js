@@ -36,7 +36,7 @@ const ContactPage = () => {
     
     emailjs.sendForm(
       'service_czz2xpq',
-      'template_2tg7x6a',
+      'template_uhj8srh',
       formRef.current,
       'puDsaIjx-8VjF8nKp'
     )
@@ -46,8 +46,10 @@ const ContactPage = () => {
         setSending(false);
       })
       .catch((error) => {
-        console.error('Email error:', error.text);
-        setError('Failed to send. Please try again or email us directly.');
+        console.error('Email error:', error);
+        // Show more detailed error for debugging
+        const errorMsg = error?.text || error?.message || 'Unknown error';
+        setError(`Failed to send: ${errorMsg}. Please email us directly at njdevelopments123@gmail.com`);
         setSending(false);
       });
   };
