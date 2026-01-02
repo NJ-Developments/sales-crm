@@ -178,11 +178,16 @@
 .custom-radius-label { color: var(--text-muted); font-size: 13px; font-weight: 600; }
 
 /* Pin drop controls */
-.pin-drop-controls { display: flex; gap: 10px; }
-.pin-drop-btn { flex: 1; padding: 14px 18px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.pin-drop-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.pin-drop-btn { flex: 1; padding: 14px 18px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; min-width: 140px; }
 .pin-drop-btn:hover { border-color: var(--purple); color: #fff; background: var(--bg-card-hover); }
 .pin-drop-btn.active { background: linear-gradient(135deg, var(--purple) 0%, #9333ea 100%); border-color: var(--purple); color: #fff; animation: pulse 1.5s infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); } }
+.locate-btn { flex: 1; padding: 14px 18px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; min-width: 120px; }
+.locate-btn:hover { border-color: var(--accent); color: #fff; background: var(--bg-card-hover); }
+.locate-btn.locating { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); border-color: var(--accent); color: var(--bg-dark); animation: pulse-locate 1.5s infinite; }
+.locate-btn:disabled { opacity: 0.7; cursor: wait; }
+@keyframes pulse-locate { 0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(45, 212, 191, 0); } }
 .clear-pin-btn { padding: 14px 18px; background: rgba(239,68,68,0.1); border: 1px solid var(--danger); border-radius: 12px; color: var(--danger); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
 .clear-pin-btn:hover { background: rgba(239,68,68,0.2); }
 .pin-location-info { padding: 10px 14px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 10px; color: #c084fc; font-size: 12px; margin-top: 10px; font-weight: 500; }

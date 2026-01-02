@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CRM.css';
 import { initFirebase, isFirebaseConfigured, saveLead, updateFirebaseLead, subscribeToLeads, deleteLead } from './firebase';
@@ -124,8 +124,13 @@ export default function CRM() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('mapsApiKey') || '');
   const [keyInput, setKeyInput] = useState('');
   const markers = useRef([]);
+  const markerMap = useRef(new Map()); // Map of lead.id -> marker for efficient updates
   const searchCircle = useRef(null);
   const placesServiceDiv = useRef(null);
+  const [mapReady, setMapReady] = useState(false); // Track if map is ready
+  const updateMarkersTimer = useRef(null); // Debounce timer for marker updates
+  const detailsQueue = useRef([]); // Queue for batching Places API calls
+  const detailsProcessing = useRef(false); // Flag to prevent concurrent processing
   
   // Lead detail modal
   const [selectedLead, setSelectedLead] = useState(null);
@@ -160,6 +165,7 @@ export default function CRM() {
   const droppedPinMarker = useRef(null); // Marker for dropped pin
   const [pagination, setPagination] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  const [locating, setLocating] = useState(false); // Track geolocation in progress
 
   // Keep refs in sync with state
   useEffect(() => { pinDropModeRef.current = pinDropMode; }, [pinDropMode]);
@@ -169,13 +175,21 @@ export default function CRM() {
   const isFirebaseUpdate = useRef(false);
   const hasFirebaseLoaded = useRef(false); // Track if we've received initial Firebase data
   const deletedIds = useRef(new Set()); // Track deleted IDs to prevent re-syncing
+  const firebaseSyncTimer = useRef(null); // Debounce timer for Firebase sync
+  const pendingFirebaseUpdates = useRef(new Map()); // Pending updates to batch
   
   // Keep leadsRef in sync with leads state and sync changes to Firebase
   const prevLeadsRef = useRef([]);
   useEffect(() => { 
     leadsRef.current = leads;
     localStorage.setItem('leads', JSON.stringify(leads)); 
-    updateMarkers();
+    // Debounce marker updates to prevent lag
+    if (updateMarkersTimer.current) {
+      clearTimeout(updateMarkersTimer.current);
+    }
+    updateMarkersTimer.current = setTimeout(() => {
+      updateMarkers();
+    }, 100); // 100ms debounce
     
     // Only sync to Firebase if:
     // 1. Firebase is connected
@@ -199,11 +213,22 @@ export default function CRM() {
         if (!hasBeenInteractedWith) return;
         
         const prevLead = prevLeadsRef.current.find(l => l.id === lead.id);
-        // If lead is new or updated, sync to Firebase
+        // If lead is new or updated, queue for Firebase sync
         if (!prevLead || lead.lastUpdated !== prevLead.lastUpdated) {
-          saveLead(lead);
+          pendingFirebaseUpdates.current.set(lead.id, lead);
         }
       });
+      
+      // Debounce Firebase sync to batch multiple updates
+      if (firebaseSyncTimer.current) {
+        clearTimeout(firebaseSyncTimer.current);
+      }
+      firebaseSyncTimer.current = setTimeout(() => {
+        pendingFirebaseUpdates.current.forEach(lead => {
+          saveLead(lead);
+        });
+        pendingFirebaseUpdates.current.clear();
+      }, 500); // 500ms debounce for Firebase writes
     }
     isFirebaseUpdate.current = false;
     prevLeadsRef.current = leads;
@@ -312,6 +337,10 @@ export default function CRM() {
       ],
       disableDefaultUI: true, zoomControl: true,
     });
+    // Mark map as ready after tiles load
+    window.google.maps.event.addListenerOnce(mapInstance.current, 'tilesloaded', () => {
+      setMapReady(true);
+    });
     // Update search center when map is moved
     mapInstance.current.addListener('idle', () => {
       const center = mapInstance.current.getCenter();
@@ -374,40 +403,79 @@ export default function CRM() {
   }
 
   function updateMarkers() {
-    // Clear existing markers
-    markers.current.forEach(m => m.setMap(null));
-    markers.current = [];
     if (!mapInstance.current || !window.google) return;
     
+    const currentLeadIds = new Set(leads.filter(l => l.lat && l.lng).map(l => l.id));
+    const existingMarkerIds = new Set(markerMap.current.keys());
+    
+    // Remove markers for leads that no longer exist
+    existingMarkerIds.forEach(id => {
+      if (!currentLeadIds.has(id)) {
+        const marker = markerMap.current.get(id);
+        if (marker) {
+          marker.setMap(null);
+          markerMap.current.delete(id);
+        }
+      }
+    });
+    
+    // Update or create markers
     leads.forEach(lead => {
       if (!lead.lat || !lead.lng) return;
       
-      const marker = new window.google.maps.Marker({
-        position: { lat: lead.lat, lng: lead.lng },
-        map: mapInstance.current,
-        icon: { 
-          path: window.google.maps.SymbolPath.CIRCLE, 
-          scale: 8, 
-          fillColor: getStatusColor(lead.status), 
-          fillOpacity: 1, 
-          strokeColor: '#fff', 
-          strokeWeight: 2 
-        },
-        animation: window.google.maps.Animation.DROP, // Add drop animation
-        title: lead.name, // Show name on hover
-      });
+      const existingMarker = markerMap.current.get(lead.id);
+      const newColor = getStatusColor(lead.status);
       
-      // Store lead ID on marker for click handling
-      marker.leadId = lead.id;
-      
-      // Click marker to open lead detail - use leadsRef for fresh data
-      marker.addListener('click', () => {
-        const currentLead = leadsRef.current.find(l => l.id === marker.leadId);
-        if (currentLead) setSelectedLead(currentLead);
-      });
-      
-      markers.current.push(marker);
+      if (existingMarker) {
+        // Update existing marker's icon color if status changed
+        const currentIcon = existingMarker.getIcon();
+        if (currentIcon.fillColor !== newColor) {
+          existingMarker.setIcon({
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: newColor,
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 2
+          });
+        }
+        // Update position if changed
+        const pos = existingMarker.getPosition();
+        if (pos.lat() !== lead.lat || pos.lng() !== lead.lng) {
+          existingMarker.setPosition({ lat: lead.lat, lng: lead.lng });
+        }
+      } else {
+        // Create new marker - only animate new markers, not updates
+        const isNewMarker = !existingMarkerIds.has(lead.id);
+        const marker = new window.google.maps.Marker({
+          position: { lat: lead.lat, lng: lead.lng },
+          map: mapInstance.current,
+          icon: { 
+            path: window.google.maps.SymbolPath.CIRCLE, 
+            scale: 8, 
+            fillColor: newColor, 
+            fillOpacity: 1, 
+            strokeColor: '#fff', 
+            strokeWeight: 2 
+          },
+          animation: isNewMarker ? window.google.maps.Animation.DROP : null,
+          title: lead.name,
+          optimized: true, // Enable marker optimization
+        });
+        
+        marker.leadId = lead.id;
+        
+        marker.addListener('click', () => {
+          const currentLead = leadsRef.current.find(l => l.id === marker.leadId);
+          if (currentLead) setSelectedLead(currentLead);
+        });
+        
+        markerMap.current.set(lead.id, marker);
+      }
     });
+    
+    // Keep markers.current in sync for backward compatibility
+    markers.current = Array.from(markerMap.current.values());
   }
 
   function search(loadMore = false) {
@@ -495,16 +563,62 @@ export default function CRM() {
         isLead: false,           // Must be marked as lead to show on sheet
       }));
       
-      // Fetch details for each lead (phone/website)
-      newLeads.forEach(lead => {
-        service.getDetails({ placeId: lead.id, fields: ['formatted_phone_number', 'website'] }, (place) => {
-          if (place) setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, phone: place.formatted_phone_number || null, website: place.website || null, lastUpdated: Date.now() } : l));
+      // Add leads to state first (without details), then batch fetch details
+      setLeads(prev => { const ids = new Set(prev.map(l => l.id)); return [...prev, ...newLeads.filter(l => !ids.has(l.id))]; });
+      setTab('leads');
+      
+      // Queue details fetching with throttling to prevent API rate limiting
+      queueDetailsForLeads(newLeads.map(l => l.id), service);
+    });
+  }
+  
+  // Process details queue with rate limiting (max 10 requests per second)
+  function processDetailsQueue() {
+    if (detailsProcessing.current || detailsQueue.current.length === 0) return;
+    if (!mapInstance.current) return;
+    
+    detailsProcessing.current = true;
+    const service = new window.google.maps.places.PlacesService(mapInstance.current);
+    
+    // Process up to 5 items at a time with 200ms delay between batches
+    const processBatch = () => {
+      if (detailsQueue.current.length === 0) {
+        detailsProcessing.current = false;
+        return;
+      }
+      
+      const batch = detailsQueue.current.splice(0, 5);
+      batch.forEach(placeId => {
+        service.getDetails({ placeId, fields: ['formatted_phone_number', 'website'] }, (place) => {
+          if (place) {
+            setLeads(prev => prev.map(l => l.id === placeId ? { 
+              ...l, 
+              phone: place.formatted_phone_number || null, 
+              website: place.website || null, 
+              lastUpdated: Date.now() 
+            } : l));
+          }
         });
       });
       
-      setLeads(prev => { const ids = new Set(prev.map(l => l.id)); return [...prev, ...newLeads.filter(l => !ids.has(l.id))]; });
-      setTab('leads');
+      // Wait 200ms before next batch
+      setTimeout(processBatch, 200);
+    };
+    
+    processBatch();
+  }
+  
+  // Queue details for fetching
+  function queueDetailsForLeads(placeIds, service) {
+    // Filter out any already queued or already fetched
+    const newIds = placeIds.filter(id => {
+      const lead = leadsRef.current.find(l => l.id === id);
+      // Only queue if phone is still null (not yet fetched)
+      return lead && lead.phone === null && !detailsQueue.current.includes(id);
     });
+    
+    detailsQueue.current.push(...newIds);
+    processDetailsQueue();
   }
   
   // Calculate distance between two points in meters
@@ -551,14 +665,11 @@ export default function CRM() {
         isLead: false,           // Must be marked as lead to show on sheet
       }));
       
-      const service = new window.google.maps.places.PlacesService(mapInstance.current);
-      newLeads.forEach(lead => {
-        service.getDetails({ placeId: lead.id, fields: ['formatted_phone_number', 'website'] }, (place) => {
-          if (place) setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, phone: place.formatted_phone_number || null, website: place.website || null, lastUpdated: Date.now() } : l));
-        });
-      });
-      
+      // Add leads to state first, then queue details fetching
       setLeads(prev => { const ids = new Set(prev.map(l => l.id)); return [...prev, ...newLeads.filter(l => !ids.has(l.id))]; });
+      
+      // Queue details with rate limiting
+      queueDetailsForLeads(newLeads.map(l => l.id));
     };
     
     // This effect runs when pagination changes, but the actual callback happens in loadMore
@@ -716,6 +827,73 @@ export default function CRM() {
       mapInstance.current.panTo({ lat: lead.lat, lng: lead.lng });
       mapInstance.current.setZoom(15);
     }
+  }
+
+  // Locate user using browser geolocation
+  function locateMe() {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+    
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Set as dropped pin location
+        setDroppedPin({ lat, lng });
+        
+        // Update or create dropped pin marker
+        if (droppedPinMarker.current) {
+          droppedPinMarker.current.setPosition({ lat, lng });
+        } else if (mapInstance.current && window.google) {
+          droppedPinMarker.current = new window.google.maps.Marker({
+            position: { lat, lng },
+            map: mapInstance.current,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: '#a855f7',
+              fillOpacity: 1,
+              strokeColor: '#fff',
+              strokeWeight: 3,
+            },
+            title: 'Your Location',
+            zIndex: 9999,
+          });
+        }
+        
+        // Pan map to location and zoom in
+        if (mapInstance.current) {
+          mapInstance.current.panTo({ lat, lng });
+          mapInstance.current.setZoom(12);
+        }
+        
+        // Update search circle
+        updateSearchCircle({ lat, lng }, radius);
+        
+        setLocating(false);
+      },
+      (error) => {
+        setLocating(false);
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            alert('Location access denied. Please enable location permissions.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            alert('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            alert('Location request timed out.');
+            break;
+          default:
+            alert('An unknown error occurred getting your location.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   }
 
   // Calculate lead score (0-100)
@@ -1088,6 +1266,13 @@ export default function CRM() {
                         onClick={() => setPinDropMode(!pinDropMode)}
                       >
                         📍 {pinDropMode ? 'Click Map to Drop Pin' : 'Drop Pin on Map'}
+                      </button>
+                      <button 
+                        className={`locate-btn ${locating ? 'locating' : ''}`}
+                        onClick={locateMe}
+                        disabled={locating}
+                      >
+                        {locating ? '⏳ Locating...' : '📍 Locate Me'}
                       </button>
                       {droppedPin && (
                         <button 
