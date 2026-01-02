@@ -1,13 +1,38 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import './AboutPage.css';
 
 const AboutPage = () => {
+  const [selectedCard, setSelectedCard] = useState(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const teamMembers = [
+    {
+      initials: 'JB',
+      name: 'Jamiah Barlett',
+      role: 'Founder',
+      card: '/cards/jamiah-card.png'
+    },
+    {
+      initials: 'JF',
+      name: 'Javier Flores',
+      role: 'Founder & Developer',
+      card: '/cards/javier-card.png'
+    },
+    {
+      initials: 'NK',
+      name: 'Nolan Krieger',
+      role: 'Founder & Developer',
+      card: '/cards/nolan-card.png'
+    }
+  ];
+
+  const closeModal = () => setSelectedCard(null);
 
   return (
     <div className="about-page">
@@ -84,27 +109,20 @@ const AboutPage = () => {
               </div>
             </div>
             <div className="team-members">
-              <div className="team-card">
-                <div className="team-avatar">JB</div>
-                <div className="team-info">
-                  <h4>Jamiah Barlett</h4>
-                  <span>Founder</span>
+              {teamMembers.map((member, index) => (
+                <div 
+                  key={index}
+                  className={`team-card ${member.card ? 'clickable' : ''}`}
+                  onClick={() => member.card && setSelectedCard(member)}
+                >
+                  <div className="team-avatar">{member.initials}</div>
+                  <div className="team-info">
+                    <h4>{member.name}</h4>
+                    <span>{member.role}</span>
+                  </div>
+                  {member.card && <i className="fas fa-id-card card-icon"></i>}
                 </div>
-              </div>
-              <div className="team-card">
-                <div className="team-avatar">JF</div>
-                <div className="team-info">
-                  <h4>Javier Flores</h4>
-                  <span>Founder & Developer</span>
-                </div>
-              </div>
-              <div className="team-card">
-                <div className="team-avatar">NK</div>
-                <div className="team-info">
-                  <h4>Nolan Krieger</h4>
-                  <span>Founder & Developer</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -153,6 +171,22 @@ const AboutPage = () => {
       </section>
 
       <Footer />
+
+      {/* Business Card Modal */}
+      {selectedCard && (
+        <div className="card-modal-overlay" onClick={closeModal}>
+          <div className="card-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="card-modal-close" onClick={closeModal}>
+              <i className="fas fa-times"></i>
+            </button>
+            <img 
+              src={selectedCard.card} 
+              alt={`${selectedCard.name}'s Business Card`} 
+              className="card-modal-image"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
