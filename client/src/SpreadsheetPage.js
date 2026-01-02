@@ -1,10 +1,27 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { subscribeToLeads, updateFirebaseLead, deleteLead } from './firebase';
+import { subscribeToLeads, updateFirebaseLead, deleteLead, saveLead } from './firebase';
 import './SpreadsheetPage.css';
 
-// Lead status options
+// Lead status options with colors and icons
 const LEAD_STATUSES = ['NEW', 'CALLED', 'CALLBACK', 'INTERESTED', 'REJECTED', 'CLOSED'];
+const STATUS_CONFIG = {
+  NEW: { icon: '🆕', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
+  CALLED: { icon: '📞', color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' },
+  CALLBACK: { icon: '🔄', color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)' },
+  INTERESTED: { icon: '✅', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+  REJECTED: { icon: '❌', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+  CLOSED: { icon: '🏆', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)' }
+};
+
+// Quick filter presets
+const QUICK_FILTERS = [
+  { id: 'all', label: '📋 All', filter: {} },
+  { id: 'callbacks', label: '🔄 Callbacks', filter: { status: 'CALLBACK' } },
+  { id: 'hot', label: '🔥 Hot Leads', filter: { status: 'INTERESTED' } },
+  { id: 'new', label: '🆕 New Today', filter: { status: 'NEW', date: 'today' } },
+  { id: 'uncalled', label: '📵 Never Called', filter: { uncalled: true } },
+];
 
 const SpreadsheetPage = () => {
   const navigate = useNavigate();
@@ -18,13 +35,28 @@ const SpreadsheetPage = () => {
     search: '',
     status: 'all',
     addedBy: 'all',
-    date: 'all'
+    date: 'all',
+    uncalled: false
   });
+  const [activeQuickFilter, setActiveQuickFilter] = useState('all');
   const [currentUser, setCurrentUser] = useState(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null); // { message, type }
+  
+  // New row state for adding leads
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [newLead, setNewLead] = useState({ name: '', phone: '', address: '', notes: '', status: 'NEW' });
+  const newRowRef = useRef(null);
+  
   const inputRef = useRef(null);
   const exportMenuRef = useRef(null);
+
+  // Show action feedback toast
+  const showFeedback = (message, type = 'success') => {
+    setActionFeedback({ message, type });
+    setTimeout(() => setActionFeedback(null), 2000);
+  };
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -78,6 +110,35 @@ const SpreadsheetPage = () => {
   // Get unique team members
   const teamMembers = [...new Set(leads.map(l => l.addedBy).filter(Boolean))];
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTs = today.getTime();
+    
+    const allLeads = leads.filter(l => l.isLead);
+    const callbacks = allLeads.filter(l => l.status === 'CALLBACK').length;
+    const interested = allLeads.filter(l => l.status === 'INTERESTED').length;
+    const todayAdded = allLeads.filter(l => (l.addedAt || 0) >= todayTs).length;
+    const uncalled = allLeads.filter(l => !l.callHistory || l.callHistory.length === 0).length;
+    
+    return { total: allLeads.length, callbacks, interested, todayAdded, uncalled };
+  }, [leads]);
+
+  // Apply quick filter
+  const applyQuickFilter = (filterId) => {
+    setActiveQuickFilter(filterId);
+    const preset = QUICK_FILTERS.find(f => f.id === filterId);
+    if (preset) {
+      setFilters(prev => ({
+        ...prev,
+        status: preset.filter.status || 'all',
+        date: preset.filter.date || 'all',
+        uncalled: preset.filter.uncalled || false
+      }));
+    }
+  };
+
   // Filter and sort leads (only show leads marked as isLead)
   const filteredLeads = React.useMemo(() => {
     // Only include leads that are marked as leads
@@ -99,6 +160,11 @@ const SpreadsheetPage = () => {
       result = result.filter(lead => lead.status === filters.status);
     }
 
+    // Uncalled filter
+    if (filters.uncalled) {
+      result = result.filter(lead => !lead.callHistory || lead.callHistory.length === 0);
+    }
+
     // Added by filter
     if (filters.addedBy !== 'all') {
       result = result.filter(lead => lead.addedBy === filters.addedBy);
@@ -110,8 +176,12 @@ const SpreadsheetPage = () => {
       result = result.filter(lead => (lead.lastUpdated || lead.addedAt) >= threshold);
     }
 
-    // Sort
+    // Sort - prioritize callbacks at top when viewing all
     result.sort((a, b) => {
+      // Callbacks first (if not already filtering by status)
+      if (filters.status === 'all' && a.status === 'CALLBACK' && b.status !== 'CALLBACK') return -1;
+      if (filters.status === 'all' && b.status === 'CALLBACK' && a.status !== 'CALLBACK') return 1;
+      
       let valA = a[sortConfig.key];
       let valB = b[sortConfig.key];
 
@@ -135,13 +205,26 @@ const SpreadsheetPage = () => {
   // Keyboard shortcuts (must be after filteredLeads is defined)
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        return;
+      }
+      
       // Escape - clear selection or close export menu
       if (e.key === 'Escape') {
-        if (showExportMenu) {
+        if (showAddRow) {
+          setShowAddRow(false);
+        } else if (showExportMenu) {
           setShowExportMenu(false);
         } else if (selectedRows.size > 0) {
           setSelectedRows(new Set());
         }
+      }
+      // N - New lead
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setShowAddRow(true);
+        setTimeout(() => newRowRef.current?.focus(), 100);
       }
       // Ctrl/Cmd + A - select all (when not editing)
       if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !editingCell) {
@@ -159,7 +242,7 @@ const SpreadsheetPage = () => {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedRows, showExportMenu, editingCell, filteredLeads]);
+  }, [selectedRows, showExportMenu, showAddRow, editingCell, filteredLeads]);
 
   // Handle sort
   const handleSort = (key) => {
@@ -210,6 +293,120 @@ const SpreadsheetPage = () => {
       status: newStatus,
       lastUpdated: Date.now()
     });
+    showFeedback(`Status → ${newStatus}`);
+  };
+
+  // Quick action: Log a call with one click
+  const quickLogCall = (lead, outcome = 'CALLED') => {
+    const callEntry = {
+      date: Date.now(),
+      user: currentUser?.name || 'Unknown',
+      outcome: outcome
+    };
+    
+    updateFirebaseLead(lead.id, {
+      callHistory: [...(lead.callHistory || []), callEntry],
+      status: outcome === 'CALLBACK' ? 'CALLBACK' : (outcome === 'INTERESTED' ? 'INTERESTED' : 'CALLED'),
+      lastUpdated: Date.now()
+    });
+    showFeedback(`📞 Call logged as ${outcome}`);
+  };
+
+  // Quick action: Set callback
+  const setCallback = (lead) => {
+    const callEntry = {
+      date: Date.now(),
+      user: currentUser?.name || 'Unknown',
+      outcome: 'CALLBACK'
+    };
+    
+    updateFirebaseLead(lead.id, {
+      callHistory: [...(lead.callHistory || []), callEntry],
+      status: 'CALLBACK',
+      lastUpdated: Date.now()
+    });
+    showFeedback('🔄 Callback scheduled');
+  };
+
+  // Quick action: Mark as interested
+  const markInterested = (lead) => {
+    const callEntry = {
+      date: Date.now(),
+      user: currentUser?.name || 'Unknown',
+      outcome: 'INTERESTED'
+    };
+    
+    updateFirebaseLead(lead.id, {
+      callHistory: [...(lead.callHistory || []), callEntry],
+      status: 'INTERESTED',
+      lastUpdated: Date.now()
+    });
+    showFeedback('✅ Marked as interested!');
+  };
+
+  // Quick action: Mark as rejected
+  const markRejected = (lead) => {
+    updateFirebaseLead(lead.id, {
+      status: 'REJECTED',
+      lastUpdated: Date.now()
+    });
+    showFeedback('❌ Marked as rejected');
+  };
+
+  // Quick action: Add quick note
+  const addQuickNote = (lead, note) => {
+    const existingNotes = lead.notes || '';
+    const timestamp = new Date().toLocaleDateString();
+    const newNotes = existingNotes 
+      ? `${existingNotes}\n[${timestamp}] ${note}`
+      : `[${timestamp}] ${note}`;
+    
+    updateFirebaseLead(lead.id, {
+      notes: newNotes,
+      lastUpdated: Date.now()
+    });
+    showFeedback('📝 Note added');
+  };
+
+  // Add new lead from the add row
+  const addNewLead = async () => {
+    if (!newLead.name.trim()) {
+      alert('Please enter a business name');
+      return;
+    }
+    
+    const leadData = {
+      name: newLead.name.trim(),
+      phone: newLead.phone.trim(),
+      address: newLead.address.trim(),
+      notes: newLead.notes.trim(),
+      status: newLead.status || 'NEW',
+      source: 'manual',
+      isLead: true,
+      addedBy: currentUser?.name || 'Unknown',
+      addedAt: Date.now(),
+      lastUpdated: Date.now()
+    };
+    
+    try {
+      await saveLead(leadData);
+      setNewLead({ name: '', phone: '', address: '', notes: '', status: 'NEW' });
+      setShowAddRow(false);
+    } catch (err) {
+      console.error('Failed to add lead:', err);
+      alert('Failed to add lead');
+    }
+  };
+
+  // Handle keyboard in new row
+  const handleNewRowKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addNewLead();
+    } else if (e.key === 'Escape') {
+      setShowAddRow(false);
+      setNewLead({ name: '', phone: '', address: '', notes: '', status: 'NEW' });
+    }
   };
 
   // Toggle row selection
@@ -350,56 +547,77 @@ const SpreadsheetPage = () => {
   const columns = [
     { key: 'select', label: '', width: 40 },
     { key: 'name', label: 'Business Name', width: 200, editable: true, sortable: true },
-    { key: 'phone', label: 'Phone', width: 130, editable: true, sortable: true },
-    { key: 'address', label: 'Address', width: 250, editable: true, sortable: true },
-    { key: 'status', label: 'Status', width: 120, sortable: true },
-    { key: 'notes', label: 'Notes', width: 200, editable: true },
-    { key: 'addedBy', label: 'Added By', width: 100, sortable: true },
+    { key: 'phone', label: 'Phone', width: 120, editable: true, sortable: true },
+    { key: 'status', label: 'Status', width: 110, sortable: true },
+    { key: 'quickActions', label: 'Quick Actions', width: 160 },
+    { key: 'notes', label: 'Notes', width: 180, editable: true },
     { key: 'calls', label: 'Calls', width: 60, sortable: true },
-    { key: 'lastUpdated', label: 'Last Updated', width: 140, sortable: true },
-    { key: 'actions', label: '', width: 80 }
+    { key: 'lastUpdated', label: 'Last Updated', width: 130, sortable: true },
+    { key: 'addedBy', label: 'By', width: 80, sortable: true },
+    { key: 'actions', label: '', width: 60 }
   ];
 
   return (
     <div className="spreadsheet-page">
+      {/* Action Feedback Toast */}
+      {actionFeedback && (
+        <div className={`action-toast ${actionFeedback.type}`}>
+          {actionFeedback.message}
+        </div>
+      )}
+      
       {/* Header */}
       <header className="spreadsheet-header">
         <div className="header-left">
           <button className="back-btn" onClick={() => navigate('/crm')}>← Back to CRM</button>
-          <h1>📑 Team Sheet</h1>
-          <span className="row-count">{filteredLeads.length} leads</span>
+          <h1>📑 Lead Tracker</h1>
         </div>
         <div className="header-right">
+          {/* Stats Pills */}
+          <div className="stats-pills">
+            <span className="stat-pill total">{stats.total} Total</span>
+            <span className="stat-pill callbacks" title="Need callbacks">{stats.callbacks} 🔄</span>
+            <span className="stat-pill hot" title="Interested leads">{stats.interested} 🔥</span>
+            <span className="stat-pill uncalled" title="Never called">{stats.uncalled} 📵</span>
+          </div>
           {currentUser && (
             <span className="current-user">👤 {currentUser.name}</span>
           )}
         </div>
       </header>
 
+      {/* Quick Filters */}
+      <div className="quick-filters-bar">
+        {QUICK_FILTERS.map(qf => (
+          <button
+            key={qf.id}
+            className={`quick-filter-btn ${activeQuickFilter === qf.id ? 'active' : ''}`}
+            onClick={() => applyQuickFilter(qf.id)}
+          >
+            {qf.label}
+            {qf.id === 'callbacks' && stats.callbacks > 0 && <span className="badge">{stats.callbacks}</span>}
+            {qf.id === 'hot' && stats.interested > 0 && <span className="badge hot">{stats.interested}</span>}
+            {qf.id === 'uncalled' && stats.uncalled > 0 && <span className="badge">{stats.uncalled}</span>}
+          </button>
+        ))}
+      </div>
+
       {/* Toolbar */}
       <div className="spreadsheet-toolbar">
         <div className="toolbar-left">
           <input
             type="text"
-            placeholder="🔍 Search..."
+            placeholder="🔍 Search name, phone, address, notes..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
             className="search-input"
           />
           
           <select 
-            value={filters.status} 
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          >
-            <option value="all">All Statuses</option>
-            {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          <select 
             value={filters.addedBy} 
             onChange={(e) => setFilters(prev => ({ ...prev, addedBy: e.target.value }))}
           >
-            <option value="all">All Members</option>
+            <option value="all">👤 All Members</option>
             {teamMembers.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
 
@@ -407,14 +625,27 @@ const SpreadsheetPage = () => {
             value={filters.date} 
             onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
           >
-            <option value="all">All Time</option>
+            <option value="all">📅 All Time</option>
             <option value="today">Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
           </select>
+          
+          <span className="showing-count">{filteredLeads.length} leads</span>
         </div>
 
         <div className="toolbar-right">
+          {/* Add New Lead Button */}
+          <button 
+            className="add-row-btn"
+            onClick={() => {
+              setShowAddRow(true);
+              setTimeout(() => newRowRef.current?.focus(), 100);
+            }}
+          >
+            ➕ Add Lead
+          </button>
+          
           {/* Export menu (always visible) */}
           <div className="export-dropdown" ref={exportMenuRef}>
             <button 
@@ -488,6 +719,81 @@ const SpreadsheetPage = () => {
             </tr>
           </thead>
           <tbody>
+            {/* Add New Row */}
+            {showAddRow && (
+              <tr className="add-row">
+                <td className="cell cell-checkbox">
+                  <span className="add-icon">✨</span>
+                </td>
+                <td className="cell cell-editable">
+                  <input
+                    ref={newRowRef}
+                    type="text"
+                    value={newLead.name}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                    onKeyDown={handleNewRowKeyDown}
+                    placeholder="Business name..."
+                    className="cell-input new-row-input"
+                    autoFocus
+                  />
+                </td>
+                <td className="cell cell-editable">
+                  <input
+                    type="text"
+                    value={newLead.phone}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
+                    onKeyDown={handleNewRowKeyDown}
+                    placeholder="Phone..."
+                    className="cell-input new-row-input"
+                  />
+                </td>
+                <td className="cell cell-status">
+                  <select 
+                    value={newLead.status}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, status: e.target.value }))}
+                    className="status-select status-new"
+                  >
+                    {LEAD_STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].icon} {s}</option>)}
+                  </select>
+                </td>
+                <td className="cell cell-quick-actions">
+                  <span className="new-row-hint">↵ Enter to save</span>
+                </td>
+                <td className="cell cell-editable">
+                  <input
+                    type="text"
+                    value={newLead.notes}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, notes: e.target.value }))}
+                    onKeyDown={handleNewRowKeyDown}
+                    placeholder="Notes..."
+                    className="cell-input new-row-input"
+                  />
+                </td>
+                <td className="cell cell-calls">
+                  <span className="call-badge">0</span>
+                </td>
+                <td className="cell cell-date">
+                  Now
+                </td>
+                <td className="cell cell-member">
+                  {currentUser?.name?.slice(0, 6) || '-'}
+                </td>
+                <td className="cell cell-actions">
+                  <button className="action-btn save-action" onClick={addNewLead} title="Save">✅</button>
+                  <button 
+                    className="action-btn cancel-action" 
+                    onClick={() => {
+                      setShowAddRow(false);
+                      setNewLead({ name: '', phone: '', address: '', notes: '', status: 'NEW' });
+                    }}
+                    title="Cancel"
+                  >
+                    ❌
+                  </button>
+                </td>
+              </tr>
+            )}
+            
             {filteredLeads.map((lead, rowIndex) => (
               <tr 
                 key={lead.id} 
@@ -546,30 +852,10 @@ const SpreadsheetPage = () => {
                     />
                   ) : lead.phone ? (
                     <a href={`tel:${lead.phone}`} className="phone-link" onClick={(e) => e.stopPropagation()}>
-                      {lead.phone}
+                      📞 {lead.phone}
                     </a>
                   ) : (
-                    <span className="cell-empty">-</span>
-                  )}
-                </td>
-
-                {/* Address */}
-                <td 
-                  className="cell cell-editable"
-                  onDoubleClick={() => startEdit(lead, 'address')}
-                >
-                  {editingCell?.id === lead.id && editingCell?.field === 'address' ? (
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={handleEditKeyDown}
-                      className="cell-input"
-                    />
-                  ) : (
-                    <span className="cell-value cell-address">{lead.address}</span>
+                    <span className="cell-empty">No phone</span>
                   )}
                 </td>
 
@@ -579,9 +865,49 @@ const SpreadsheetPage = () => {
                     value={lead.status || 'NEW'} 
                     onChange={(e) => updateStatus(lead.id, e.target.value)}
                     className={`status-select status-${(lead.status || 'NEW').toLowerCase()}`}
+                    style={{ 
+                      background: STATUS_CONFIG[lead.status || 'NEW']?.bg,
+                      borderColor: STATUS_CONFIG[lead.status || 'NEW']?.color
+                    }}
                   >
-                    {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    {LEAD_STATUSES.map(s => (
+                      <option key={s} value={s}>{STATUS_CONFIG[s].icon} {s}</option>
+                    ))}
                   </select>
+                </td>
+
+                {/* Quick Actions - ONE CLICK BUTTONS */}
+                <td className="cell cell-quick-actions">
+                  <div className="quick-action-btns">
+                    <button 
+                      className="qa-btn qa-called" 
+                      onClick={(e) => { e.stopPropagation(); quickLogCall(lead, 'CALLED'); }}
+                      title="Log call"
+                    >
+                      📞
+                    </button>
+                    <button 
+                      className="qa-btn qa-callback" 
+                      onClick={(e) => { e.stopPropagation(); setCallback(lead); }}
+                      title="Set callback"
+                    >
+                      🔄
+                    </button>
+                    <button 
+                      className="qa-btn qa-interested" 
+                      onClick={(e) => { e.stopPropagation(); markInterested(lead); }}
+                      title="Mark interested"
+                    >
+                      ✅
+                    </button>
+                    <button 
+                      className="qa-btn qa-rejected" 
+                      onClick={(e) => { e.stopPropagation(); markRejected(lead); }}
+                      title="Mark rejected"
+                    >
+                      ❌
+                    </button>
+                  </div>
                 </td>
 
                 {/* Notes */}
@@ -600,23 +926,27 @@ const SpreadsheetPage = () => {
                       className="cell-input"
                     />
                   ) : (
-                    <span className="cell-value">{lead.notes || '-'}</span>
+                    <span className="cell-value" title={lead.notes || ''}>
+                      {lead.notes ? (lead.notes.length > 30 ? lead.notes.slice(0, 30) + '...' : lead.notes) : '-'}
+                    </span>
                   )}
-                </td>
-
-                {/* Added By */}
-                <td className="cell cell-member">
-                  {lead.addedBy || '-'}
                 </td>
 
                 {/* Calls */}
                 <td className="cell cell-calls">
-                  <span className="call-badge">{lead.callHistory?.length || 0}</span>
+                  <span className={`call-badge ${(lead.callHistory?.length || 0) === 0 ? 'no-calls' : ''}`}>
+                    {lead.callHistory?.length || 0}
+                  </span>
                 </td>
 
                 {/* Last Updated */}
                 <td className="cell cell-date">
                   {formatDate(lead.lastUpdated || lead.addedAt)}
+                </td>
+
+                {/* Added By */}
+                <td className="cell cell-member">
+                  {lead.addedBy?.slice(0, 6) || '-'}
                 </td>
 
                 {/* Actions */}
@@ -647,18 +977,20 @@ const SpreadsheetPage = () => {
       {/* Footer */}
       <footer className="spreadsheet-footer">
         <div className="footer-left">
-          <span>Total: {leads.length} leads</span>
+          <span>📊 {stats.total} leads</span>
           <span>•</span>
-          <span>Showing: {filteredLeads.length}</span>
+          <span>Showing {filteredLeads.length}</span>
           {selectedRows.size > 0 && (
             <>
               <span>•</span>
-              <span className="selected-info">Selected: {selectedRows.size}</span>
+              <span className="selected-info">✓ {selectedRows.size} selected</span>
             </>
           )}
         </div>
         <div className="footer-right">
-          <span className="tip">💡 Shift+Click for range • Ctrl+A select all • Delete key to remove • Double-click to edit</span>
+          <span className="keyboard-hints">
+            <kbd>N</kbd> New • <kbd>Ctrl+A</kbd> Select All • <kbd>Del</kbd> Delete • <kbd>Dbl-Click</kbd> Edit • Quick Actions: 📞🔄✅❌
+          </span>
         </div>
       </footer>
     </div>

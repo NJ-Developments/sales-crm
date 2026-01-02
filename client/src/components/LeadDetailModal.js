@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import ContactTimeline from './ContactTimeline';
-import StripeBilling from './StripeBilling';
+import React, { useState, useEffect } from 'react';
 import './LeadDetailModal.css';
 
 // Default Lead status options (used if not provided via props)
@@ -24,6 +22,95 @@ const LEAD_TAGS = [
   { value: 'LOCAL_BUSINESS', label: '📍 Local Business', color: '#2a9d8f' },
 ];
 
+// Function to extract potential owner name from business name
+const extractOwnerFromBusinessName = (businessName) => {
+  if (!businessName) return null;
+  
+  // Common patterns: "John's Plumbing", "Smith & Sons", "Mike's Auto Shop"
+  const possessiveMatch = businessName.match(/^([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)'s\s/);
+  if (possessiveMatch) return possessiveMatch[1];
+  
+  // Pattern: "Smith & Sons", "Johnson Brothers"
+  const familyMatch = businessName.match(/^([A-Z][a-z]+)\s+(?:&|and)\s+(?:Sons?|Brothers?|Family|Associates?)/i);
+  if (familyMatch) return familyMatch[1];
+  
+  // Pattern: "The John Smith Company"
+  const theCompanyMatch = businessName.match(/^The\s+([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:Company|Co|Group|LLC|Inc)/i);
+  if (theCompanyMatch) return theCompanyMatch[1];
+  
+  return null;
+};
+
+// Function to find owner using Google Places API reviews
+const findOwnerFromReviews = async (placeId) => {
+  return new Promise((resolve) => {
+    if (!window.google?.maps?.places || !placeId) {
+      resolve({ name: null, source: null, confidence: 0 });
+      return;
+    }
+
+    // Create a temporary div for PlacesService
+    const div = document.createElement('div');
+    const service = new window.google.maps.places.PlacesService(div);
+
+    service.getDetails(
+      {
+        placeId,
+        fields: ['reviews', 'name', 'user_ratings_total']
+      },
+      (place, status) => {
+        if (status !== 'OK' || !place) {
+          resolve({ name: null, source: null, confidence: 0 });
+          return;
+        }
+
+        const reviews = place.reviews || [];
+        const ownerNames = [];
+
+        // Look for owner responses in reviews
+        reviews.forEach(review => {
+          // Check if this review has an owner response
+          // Google Places API doesn't directly expose owner responses,
+          // but we can look for patterns in review author names that might indicate ownership
+          const authorName = review.author_name || '';
+          
+          // Sometimes business owners respond from their personal accounts
+          // We look for reviews with very positive ratings and professional language
+          if (review.rating === 5 && review.text) {
+            // Check if the review mentions the owner by name
+            const ownerMentionMatch = review.text.match(/(?:owner|manager|proprietor)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+            if (ownerMentionMatch) {
+              ownerNames.push({
+                name: ownerMentionMatch[1],
+                source: 'Review mention',
+                confidence: 70
+              });
+            }
+          }
+        });
+
+        // Try to extract from business name
+        const nameFromBusiness = extractOwnerFromBusinessName(place.name);
+        if (nameFromBusiness) {
+          ownerNames.push({
+            name: nameFromBusiness,
+            source: 'Business name',
+            confidence: 60
+          });
+        }
+
+        // Return the highest confidence result
+        if (ownerNames.length > 0) {
+          ownerNames.sort((a, b) => b.confidence - a.confidence);
+          resolve(ownerNames[0]);
+        } else {
+          resolve({ name: null, source: null, confidence: 0 });
+        }
+      }
+    );
+  });
+};
+
 const DEFAULT_TEAM_MEMBERS = ['Javi', 'Iamiah'];
 
 export default function LeadDetailModal({ 
@@ -41,11 +128,76 @@ export default function LeadDetailModal({
   canEdit = true,
   canDelete = true
 }) {
-  const [activeTab, setActiveTab] = useState('details');
+
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState(lead.notes || '');
   const [email, setEmail] = useState(lead.email || '');
   const [editingEmail, setEditingEmail] = useState(false);
+  
+  // Owner finder state
+  const [ownerName, setOwnerName] = useState(lead.ownerName || null);
+  const [ownerSource, setOwnerSource] = useState(lead.ownerSource || null);
+  const [ownerSearching, setOwnerSearching] = useState(false);
+  const [editingOwner, setEditingOwner] = useState(false);
+  const [manualOwnerName, setManualOwnerName] = useState('');
+
+  // Auto-find owner on mount if not already set
+  useEffect(() => {
+    if (!ownerName && lead.id && !ownerSearching) {
+      handleFindOwner();
+    }
+  }, [lead.id]);
+
+  const handleFindOwner = async () => {
+    setOwnerSearching(true);
+    
+    try {
+      // First, try to extract from business name (instant)
+      const nameFromBusiness = extractOwnerFromBusinessName(lead.name);
+      if (nameFromBusiness) {
+        setOwnerName(nameFromBusiness);
+        setOwnerSource('Business name pattern');
+        onUpdate({ ownerName: nameFromBusiness, ownerSource: 'Business name pattern', lastUpdated: Date.now() });
+        setOwnerSearching(false);
+        return;
+      }
+
+      // Then try Google Places API if we have a place_id
+      if (lead.id && window.google?.maps?.places) {
+        const result = await findOwnerFromReviews(lead.id);
+        if (result.name) {
+          setOwnerName(result.name);
+          setOwnerSource(result.source);
+          onUpdate({ ownerName: result.name, ownerSource: result.source, lastUpdated: Date.now() });
+          setOwnerSearching(false);
+          return;
+        }
+      }
+
+      // If nothing found, set to "Not found"
+      setOwnerName(null);
+      setOwnerSource('No owner info found');
+    } catch (error) {
+      console.error('Error finding owner:', error);
+      setOwnerSource('Search failed');
+    }
+    
+    setOwnerSearching(false);
+  };
+
+  const handleSaveManualOwner = () => {
+    if (manualOwnerName.trim()) {
+      setOwnerName(manualOwnerName.trim());
+      setOwnerSource('Manually entered');
+      onUpdate({ 
+        ownerName: manualOwnerName.trim(), 
+        ownerSource: 'Manually entered', 
+        lastUpdated: Date.now() 
+      });
+    }
+    setEditingOwner(false);
+    setManualOwnerName('');
+  };
 
   const handleStatusChange = (status) => {
     if (onStatusChange) {
@@ -57,14 +209,26 @@ export default function LeadDetailModal({
 
   const handleTagToggle = (tagValue) => {
     const currentTags = lead.tags || [];
-    const newTags = currentTags.includes(tagValue)
-      ? currentTags.filter(t => t !== tagValue)
-      : [...currentTags, tagValue];
-    onUpdate({ tags: newTags, lastUpdated: Date.now() });
+    const isAdding = !currentTags.includes(tagValue);
+    const newTags = isAdding
+      ? [...currentTags, tagValue]
+      : currentTags.filter(t => t !== tagValue);
+    
+    // Auto-add to sheet when adding a tag
+    const updates = { tags: newTags, lastUpdated: Date.now() };
+    if (isAdding && !lead.isLead) {
+      updates.isLead = true;
+    }
+    onUpdate(updates);
   };
 
   const handleAssign = (assignee) => {
-    onUpdate({ assignedTo: assignee, lastUpdated: Date.now() });
+    // Auto-add to sheet when assigning to someone
+    const updates = { assignedTo: assignee, lastUpdated: Date.now() };
+    if (assignee && !lead.isLead) {
+      updates.isLead = true;
+    }
+    onUpdate(updates);
   };
 
   const handleSaveNotes = () => {
@@ -77,17 +241,7 @@ export default function LeadDetailModal({
     setEditingEmail(false);
   };
 
-  const handleAddActivity = (activity) => {
-    const activities = lead.activities || [];
-    onUpdate({ 
-      activities: [...activities, activity],
-      lastUpdated: Date.now() 
-    });
-  };
 
-  const handleSetFollowUp = (followUpDate) => {
-    onUpdate({ followUpDate, lastUpdated: Date.now() });
-  };
 
   // Auto-detect tags based on lead data
   const autoTags = [];
@@ -170,35 +324,61 @@ export default function LeadDetailModal({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="modal-tabs">
-          <button 
-            className={`modal-tab ${activeTab === 'details' ? 'active' : ''}`}
-            onClick={() => setActiveTab('details')}
-          >
-            📋 Details
-          </button>
-          <button 
-            className={`modal-tab ${activeTab === 'timeline' ? 'active' : ''}`}
-            onClick={() => setActiveTab('timeline')}
-          >
-            📞 Timeline
-            {(lead.activities?.length || 0) > 0 && (
-              <span className="tab-badge">{lead.activities.length}</span>
-            )}
-          </button>
-          <button 
-            className={`modal-tab ${activeTab === 'billing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('billing')}
-          >
-            💳 Billing
-          </button>
-        </div>
-
-        {/* Tab Content */}
+        {/* Content */}
         <div className="modal-body">
-          {activeTab === 'details' && (
-            <div className="details-tab">
+              {/* Owner Info - Prominent Display */}
+              <div className="detail-section owner-section">
+                <h4>👤 Business Owner</h4>
+                <div className="owner-display">
+                  {ownerSearching ? (
+                    <div className="owner-searching">
+                      <span className="spinner">🔍</span>
+                      <span>Searching for owner...</span>
+                    </div>
+                  ) : editingOwner ? (
+                    <div className="owner-edit">
+                      <input
+                        type="text"
+                        value={manualOwnerName}
+                        onChange={(e) => setManualOwnerName(e.target.value)}
+                        placeholder="Enter owner name..."
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveManualOwner();
+                          if (e.key === 'Escape') setEditingOwner(false);
+                        }}
+                      />
+                      <button className="save-btn" onClick={handleSaveManualOwner}>Save</button>
+                      <button className="cancel-btn" onClick={() => setEditingOwner(false)}>Cancel</button>
+                    </div>
+                  ) : ownerName ? (
+                    <div className="owner-found">
+                      <span className="owner-name">{ownerName}</span>
+                      <span className="owner-source">({ownerSource})</span>
+                      <div className="owner-actions">
+                        <button className="edit-owner-btn" onClick={() => {
+                          setManualOwnerName(ownerName);
+                          setEditingOwner(true);
+                        }}>✏️</button>
+                        <button className="search-owner-btn" onClick={handleFindOwner}>🔄</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="owner-not-found">
+                      <span className="no-owner">No owner found</span>
+                      <div className="owner-actions">
+                        <button className="add-owner-btn" onClick={() => setEditingOwner(true)}>
+                          ➕ Add Manually
+                        </button>
+                        <button className="retry-owner-btn" onClick={handleFindOwner}>
+                          🔍 Search Again
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Contact Info */}
               <div className="detail-section">
                 <h4>📞 Contact Information</h4>
@@ -335,28 +515,11 @@ export default function LeadDetailModal({
                 )}
               </div>
 
-              {/* Meta Info */}
-              <div className="meta-info">
-                <span>Added by {lead.addedBy || 'Unknown'} on {new Date(lead.addedAt).toLocaleDateString()}</span>
-                <span>Last updated {formatTimeAgo(lead.lastUpdated)}</span>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'timeline' && (
-            <ContactTimeline
-              lead={lead}
-              onAddActivity={handleAddActivity}
-              onSetFollowUp={handleSetFollowUp}
-            />
-          )}
-
-          {activeTab === 'billing' && (
-            <StripeBilling 
-              lead={lead}
-              onUpdate={onUpdate}
-            />
-          )}
+          {/* Meta Info */}
+          <div className="meta-info">
+            <span>Added by {lead.addedBy || 'Unknown'} on {new Date(lead.addedAt).toLocaleDateString()}</span>
+            <span>Last updated {formatTimeAgo(lead.lastUpdated)}</span>
+          </div>
         </div>
 
         {/* Footer */}
@@ -366,10 +529,10 @@ export default function LeadDetailModal({
               📍 Zoom to Map
             </button>
           )}
-          <button className="maps-btn" onClick={() => {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address)}`, '_blank');
+          <button className="google-btn" onClick={() => {
+            window.open(`https://www.google.com/search?q=${encodeURIComponent(lead.name + ' ' + (lead.address || ''))}`, '_blank');
           }}>
-            🗺️ View on Maps
+            🔍 View on Google
           </button>
           {canDelete && (
             <button className="delete-btn" onClick={() => {

@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="container">
         <div className="footer-content">
           <div className="footer-brand">
-            <Link to="/" className="footer-logo">
+            <Link to="/crm" className="footer-logo">
               <img src="/logo.png" alt="NJ Developments" className="footer-logo-img" />
             </Link>
             <p>Building digital solutions that drive real business growth.</p>

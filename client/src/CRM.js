@@ -4,8 +4,6 @@ import './CRM.css';
 import { initFirebase, isFirebaseConfigured, saveLead, updateFirebaseLead, subscribeToLeads, deleteLead } from './firebase';
 import Dashboard from './components/Dashboard';
 import LeadDetailModal from './components/LeadDetailModal';
-import FacebookLeadModal from './components/FacebookLeadModal';
-import './components/FacebookLeadModal.css';
 import TeamSheet from './components/TeamSheet';
 import './components/TeamSheet.css';
 import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from './components/UserRoles';
@@ -13,7 +11,6 @@ import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from '
 // Lead sources
 const LEAD_SOURCES = {
   google_maps: { label: '🗺️ Google Maps', color: '#ea4335', icon: '🗺️' },
-  facebook: { label: '📘 Facebook', color: '#1877f2', icon: '📘' },
   manual: { label: '✏️ Manual', color: '#a855f7', icon: '✏️' },
 };
 
@@ -46,6 +43,7 @@ const RADIUS_OPTIONS = [
 
 const BUSINESS_TYPES = [
   { label: '-- Select Industry --', value: '' },
+  { label: '🌐 All Industry Search', value: 'all' },
   // Home Services
   { label: '🔧 Plumbers', value: 'plumber' },
   { label: '⚡ Electricians', value: 'electrician' },
@@ -161,34 +159,6 @@ export default function CRM() {
   const [showSettings, setShowSettings] = useState(false);
   const [sheetsUrlInput, setSheetsUrlInput] = useState(() => localStorage.getItem('sheetsUrl') || '');
   
-  // Facebook lead modal
-  const [showFacebookModal, setShowFacebookModal] = useState(false);
-  
-  // Source filter (all, google_maps, facebook, manual)
-  const [sourceFilter, setSourceFilter] = useState('all');
-  
-  // Saved Facebook Groups - persist to localStorage
-  const [savedFbGroups, setSavedFbGroups] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('savedFbGroups') || '[]');
-    } catch { return []; }
-  });
-  const [newGroupUrl, setNewGroupUrl] = useState('');
-  const [newGroupName, setNewGroupName] = useState('');
-  
-  // Save FB groups to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('savedFbGroups', JSON.stringify(savedFbGroups));
-  }, [savedFbGroups]);
-  
-  // Calling mode - for focused calling sessions
-  const [callingMode, setCallingMode] = useState(false);
-  const [currentCallIndex, setCurrentCallIndex] = useState(0);
-  
-  // Quick-add Facebook lead (inline form)
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddData, setQuickAddData] = useState({ name: '', phone: '', address: '', notes: '' });
-  
   // Map search panel open (for unified leads view)
   const [mapSearchOpen, setMapSearchOpen] = useState(true);
   
@@ -208,6 +178,19 @@ export default function CRM() {
   const [pagination, setPagination] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [locating, setLocating] = useState(false); // Track geolocation in progress
+  const [locationError, setLocationError] = useState(null); // Location error message
+
+  // Command palette state
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandSearch, setCommandSearch] = useState('');
+  const commandInputRef = useRef(null);
+
+  // Quick Add Modal state
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const quickAddNameRef = useRef(null);
+
+  // Toggle to show/hide lead markers on map
+  const [showLeadMarkers, setShowLeadMarkers] = useState(true);
 
   // Keep refs in sync with state
   useEffect(() => { pinDropModeRef.current = pinDropMode; }, [pinDropMode]);
@@ -281,7 +264,7 @@ export default function CRM() {
     }
     isFirebaseUpdate.current = false;
     prevLeadsRef.current = leads;
-  }, [leads, firebaseConnected]);
+  }, [leads, firebaseConnected, showLeadMarkers]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -292,17 +275,49 @@ export default function CRM() {
     }
   }, [openMenuId]);
 
+  // Command palette keyboard shortcut (Ctrl+K)
+  useEffect(() => {
+    const handleCommandK = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(true);
+        setCommandSearch('');
+        setTimeout(() => commandInputRef.current?.focus(), 50);
+      }
+    };
+    document.addEventListener('keydown', handleCommandK);
+    return () => document.removeEventListener('keydown', handleCommandK);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore if typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        return;
+      }
+      
       // Esc to close modals
       if (e.key === 'Escape') {
-        if (selectedLead) setSelectedLead(null);
+        if (showQuickAddModal) setShowQuickAddModal(false);
+        else if (showCommandPalette) setShowCommandPalette(false);
+        else if (selectedLead) setSelectedLead(null);
         else if (showSettings) setShowSettings(false);
         else if (bulkMode) {
           setBulkMode(false);
           setSelectedLeadIds(new Set());
         }
+      }
+      // N to add new lead
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setShowQuickAddModal(true);
+        setTimeout(() => quickAddNameRef.current?.focus(), 50);
+      }
+      // L to locate me
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        locateMe();
       }
       // Ctrl/Cmd + F to focus search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f' && tab === 'leads') {
@@ -312,9 +327,9 @@ export default function CRM() {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedLead, showSettings, bulkMode, tab]);
+  }, [selectedLead, showSettings, bulkMode, tab, showQuickAddModal, showCommandPalette]);
 
-  // Firebase real-time sync - Firebase is the source of truth
+  // Firebase real-time sync - Only load leads that user has interacted with
   useEffect(() => {
     if (!firebaseConnected) return;
     const unsubscribe = subscribeToLeads((firebaseLeads) => {
@@ -324,12 +339,20 @@ export default function CRM() {
       isFirebaseUpdate.current = true;
       // Filter out any leads that were recently deleted locally
       const filteredLeads = firebaseLeads.filter(lead => !deletedIds.current.has(lead.id));
-      // Firebase is the source of truth - use Firebase leads directly
-      // Also merge with local search results that haven't been interacted with yet
+      
+      // Only keep Firebase leads that have been interacted with (saved leads)
+      // This ensures old search results don't clutter new searches
+      const savedFirebaseLeads = filteredLeads.filter(lead => 
+        lead.isLead || 
+        (lead.notes && lead.notes.trim() !== '') || 
+        lead.status !== 'NEW' || 
+        (lead.callHistory && lead.callHistory.length > 0)
+      );
+      
       setLeads(prev => {
-        // Get local search results that haven't been saved to Firebase yet
-        const localOnlyLeads = prev.filter(lead => {
-          const inFirebase = filteredLeads.some(fl => fl.id === lead.id);
+        // Keep current search results that haven't been saved yet
+        const currentSearchResults = prev.filter(lead => {
+          const inFirebase = savedFirebaseLeads.some(fl => fl.id === lead.id);
           const hasBeenInteractedWith = lead.isLead || 
             (lead.notes && lead.notes.trim() !== '') || 
             lead.status !== 'NEW' || 
@@ -337,8 +360,8 @@ export default function CRM() {
           // Keep local leads that are not in Firebase AND haven't been interacted with
           return !inFirebase && !hasBeenInteractedWith;
         });
-        // Combine Firebase leads with local-only search results
-        return [...filteredLeads, ...localOnlyLeads];
+        // Combine saved Firebase leads with current search results
+        return [...savedFirebaseLeads, ...currentSearchResults];
       });
     });
     return unsubscribe;
@@ -465,6 +488,14 @@ export default function CRM() {
   function updateMarkers() {
     if (!mapInstance.current || !window.google) return;
     
+    // If markers are hidden, remove all markers from map
+    if (!showLeadMarkers) {
+      markerMap.current.forEach(marker => marker.setMap(null));
+      markerMap.current.clear();
+      markers.current = [];
+      return;
+    }
+    
     const currentLeadIds = new Set(leads.filter(l => l.lat && l.lng).map(l => l.id));
     const existingMarkerIds = new Set(markerMap.current.keys());
     
@@ -569,12 +600,118 @@ export default function CRM() {
     // Show search radius circle
     updateSearchCircle({ lat: centerLat, lng: centerLng }, radius);
     
-    // Build search query
+    // Build search query - use value (clean text) not label (has emoji)
     let searchQuery = query.trim();
     const selectedType = BUSINESS_TYPES.find(t => t.value === businessType);
-    if (businessType && selectedType) {
-      searchQuery = searchQuery ? `${selectedType.label} ${searchQuery}` : selectedType.label;
+    
+    // Handle "All Industries" - search multiple industry types
+    if (businessType === 'all') {
+      // Search across multiple industry keywords for comprehensive results
+      const industryKeywords = [
+        'contractor', 'plumber', 'electrician', 'hvac', 'restaurant', 
+        'salon', 'auto repair', 'dentist', 'lawyer', 'real estate',
+        'landscaper', 'cleaning service', 'gym', 'retail store'
+      ];
+      
+      const service = new window.google.maps.places.PlacesService(mapInstance.current);
+      const allResults = new Map(); // Use Map to dedupe by place_id
+      let completedSearches = 0;
+      const totalSearches = industryKeywords.length;
+      
+      console.log(`Starting All Industries search with ${totalSearches} keywords...`);
+      
+      // Search each industry keyword
+      industryKeywords.forEach((keyword, index) => {
+        // Stagger requests to avoid rate limiting
+        setTimeout(() => {
+          const searchTerm = query.trim() ? `${keyword} ${query.trim()}` : keyword;
+          
+          service.textSearch({
+            query: searchTerm,
+            location: { lat: centerLat, lng: centerLng },
+            radius: radius,
+          }, (results, status) => {
+            completedSearches++;
+            
+            if (status === 'OK' && results) {
+              // Filter by radius and add to results map
+              results.forEach(p => {
+                const lat = p.geometry.location.lat();
+                const lng = p.geometry.location.lng();
+                const distance = getDistanceMeters(centerLat, centerLng, lat, lng);
+                if (distance <= radius && !allResults.has(p.place_id)) {
+                  allResults.set(p.place_id, {
+                    ...p,
+                    searchKeyword: keyword // Track which keyword found it
+                  });
+                }
+              });
+            }
+            
+            console.log(`Search ${completedSearches}/${totalSearches}: "${keyword}" found ${results?.length || 0} results`);
+            
+            // When all searches complete, process the combined results
+            if (completedSearches === totalSearches) {
+              setSearching(false);
+              
+              const combinedResults = Array.from(allResults.values());
+              console.log(`All Industries search complete: ${combinedResults.length} unique businesses found`);
+              
+              if (combinedResults.length === 0) {
+                alert('No businesses found in this area. Try expanding your radius.');
+                return;
+              }
+              
+              const newLeads = combinedResults.map(p => ({
+                id: p.place_id, name: p.name, address: p.formatted_address,
+                lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
+                phone: null, website: null,
+                detailsFetched: false,
+                source: 'google_maps',
+                status: 'NEW',
+                notes: '',
+                addedBy: currentUser?.name || 'Unknown',
+                assignedTo: '',
+                callHistory: [],
+                addedAt: Date.now(),
+                lastUpdated: Date.now(),
+                rating: p.rating || null, userRatingsTotal: p.user_ratings_total || 0,
+                businessType: p.searchKeyword || 'all',
+                isLead: false,
+              }));
+              
+              // Replace leads with fresh search results
+              setLeads(prev => {
+                const savedLeads = prev.filter(l => 
+                  l.isLead || 
+                  (l.notes && l.notes.trim() !== '') || 
+                  l.status !== 'NEW' || 
+                  (l.callHistory && l.callHistory.length > 0)
+                );
+                const savedIds = new Set(savedLeads.map(l => l.id));
+                const freshLeads = newLeads.filter(l => !savedIds.has(l.id));
+                return [...savedLeads, ...freshLeads];
+              });
+              setTab('leads');
+              
+              // Queue details fetching
+              queueDetailsForLeads(newLeads.map(l => l.id), service);
+            }
+          });
+        }, index * 150); // 150ms between each search to avoid rate limiting
+      });
+      
+      return; // Exit early - the callbacks will handle the rest
     }
+    
+    // Regular single-industry search
+    if (businessType && selectedType) {
+      // Use the value (e.g. "plumber") instead of label (e.g. "🔧 Plumbers") for better search results
+      const cleanType = selectedType.value.replace(/_/g, ' '); // Convert "general_contractor" to "general contractor"
+      searchQuery = searchQuery ? `${cleanType} ${searchQuery}` : cleanType;
+    }
+    
+    console.log('Searching for:', searchQuery, 'at', centerLat, centerLng, 'radius:', radius);
     
     // Use textSearch with location bias
     const service = new window.google.maps.places.PlacesService(mapInstance.current);
@@ -584,6 +721,7 @@ export default function CRM() {
       location: { lat: centerLat, lng: centerLng },
       radius: radius,
     }, (results, status) => {
+      console.log('Search results:', status, results?.length || 0, 'results');
       setSearching(false);
       if (status !== 'OK' || !results) {
         if (status === 'ZERO_RESULTS') {
@@ -602,6 +740,8 @@ export default function CRM() {
         return distance <= radius;
       });
       
+      console.log('Filtered to', filteredResults.length, 'results within radius');
+      
       if (filteredResults.length === 0) {
         alert('No results found within your selected radius. Try expanding it.');
         return;
@@ -611,6 +751,7 @@ export default function CRM() {
         id: p.place_id, name: p.name, address: p.formatted_address,
         lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
         phone: null, website: null, 
+        detailsFetched: false,   // Track if we've fetched phone/website details
         source: 'google_maps',   // Lead source
         status: 'NEW',           // Lead status
         notes: '',               // User notes
@@ -624,8 +765,20 @@ export default function CRM() {
         isLead: false,           // Must be marked as lead to show on sheet
       }));
       
-      // Add leads to state first (without details), then batch fetch details
-      setLeads(prev => { const ids = new Set(prev.map(l => l.id)); return [...prev, ...newLeads.filter(l => !ids.has(l.id))]; });
+      // Replace leads with fresh search results (keep only leads marked as isLead or with notes/status changes)
+      setLeads(prev => {
+        // Keep leads that user has interacted with (marked as lead, has notes, status changed, or has call history)
+        const savedLeads = prev.filter(l => 
+          l.isLead || 
+          (l.notes && l.notes.trim() !== '') || 
+          l.status !== 'NEW' || 
+          (l.callHistory && l.callHistory.length > 0)
+        );
+        // Add new leads that aren't already saved
+        const savedIds = new Set(savedLeads.map(l => l.id));
+        const freshLeads = newLeads.filter(l => !savedIds.has(l.id));
+        return [...savedLeads, ...freshLeads];
+      });
       setTab('leads');
       
       // Queue details fetching with throttling to prevent API rate limiting
@@ -633,7 +786,8 @@ export default function CRM() {
     });
   }
   
-  // Process details queue with rate limiting (max 10 requests per second)
+  // Process details queue with rate limiting
+  // Google Places API allows ~10 QPS, so we do 10 parallel requests with 100ms between batches
   function processDetailsQueue() {
     if (detailsProcessing.current || detailsQueue.current.length === 0) return;
     if (!mapInstance.current) return;
@@ -641,29 +795,29 @@ export default function CRM() {
     detailsProcessing.current = true;
     const service = new window.google.maps.places.PlacesService(mapInstance.current);
     
-    // Process up to 5 items at a time with 200ms delay between batches
+    // Process 10 items at a time with 100ms delay between batches (faster!)
     const processBatch = () => {
       if (detailsQueue.current.length === 0) {
         detailsProcessing.current = false;
         return;
       }
       
-      const batch = detailsQueue.current.splice(0, 5);
+      const batch = detailsQueue.current.splice(0, 10); // Increased from 5 to 10
       batch.forEach(placeId => {
-        service.getDetails({ placeId, fields: ['formatted_phone_number', 'website'] }, (place) => {
-          if (place) {
-            setLeads(prev => prev.map(l => l.id === placeId ? { 
-              ...l, 
-              phone: place.formatted_phone_number || null, 
-              website: place.website || null, 
-              lastUpdated: Date.now() 
-            } : l));
-          }
+        service.getDetails({ placeId, fields: ['formatted_phone_number', 'website', 'international_phone_number'] }, (place, status) => {
+          // Mark as fetched regardless of result
+          setLeads(prev => prev.map(l => l.id === placeId ? { 
+            ...l, 
+            phone: place?.formatted_phone_number || place?.international_phone_number || null, 
+            website: place?.website || null, 
+            detailsFetched: true,
+            lastUpdated: Date.now() 
+          } : l));
         });
       });
       
-      // Wait 200ms before next batch
-      setTimeout(processBatch, 200);
+      // Wait 100ms before next batch (reduced from 200ms)
+      setTimeout(processBatch, 100);
     };
     
     processBatch();
@@ -673,9 +827,14 @@ export default function CRM() {
   function queueDetailsForLeads(placeIds, service) {
     // Filter out any already queued or already fetched
     const newIds = placeIds.filter(id => {
+      // Check if already in the queue
+      if (detailsQueue.current.includes(id)) return false;
+      // Check if already fetched (look up in leadsRef if available)
       const lead = leadsRef.current.find(l => l.id === id);
-      // Only queue if phone is still null (not yet fetched)
-      return lead && lead.phone === null && !detailsQueue.current.includes(id);
+      // If lead exists in ref and details already fetched, skip it
+      if (lead && lead.detailsFetched) return false;
+      // Otherwise queue it (including new leads not yet in ref)
+      return true;
     });
     
     detailsQueue.current.push(...newIds);
@@ -891,18 +1050,50 @@ export default function CRM() {
     }
   }
 
+  // Track geolocation watch ID for cancellation
+  const geoWatchId = useRef(null);
+
   // Locate user using browser geolocation
   function locateMe() {
+    // If already locating, cancel it
+    if (locating) {
+      if (geoWatchId.current !== null) {
+        navigator.geolocation.clearWatch(geoWatchId.current);
+        geoWatchId.current = null;
+      }
+      setLocating(false);
+      setLocationError(null);
+      return;
+    }
+
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
+      setLocationError('Geolocation not supported');
+      setTimeout(() => setLocationError(null), 3000);
+      return;
+    }
+    
+    if (!mapInstance.current || !window.google) {
+      setLocationError('Map still loading...');
+      setTimeout(() => setLocationError(null), 3000);
       return;
     }
     
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    setLocationError(null);
+
+    // Use watchPosition for faster response, then clear it
+    geoWatchId.current = navigator.geolocation.watchPosition(
       (position) => {
+        // Clear watch immediately after first success
+        if (geoWatchId.current !== null) {
+          navigator.geolocation.clearWatch(geoWatchId.current);
+          geoWatchId.current = null;
+        }
+
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        
+        console.log('Located at:', lat, lng);
         
         // Set as dropped pin location
         setDroppedPin({ lat, lng });
@@ -910,28 +1101,28 @@ export default function CRM() {
         // Update or create dropped pin marker
         if (droppedPinMarker.current) {
           droppedPinMarker.current.setPosition({ lat, lng });
-        } else if (mapInstance.current && window.google) {
+        } else {
           droppedPinMarker.current = new window.google.maps.Marker({
             position: { lat, lng },
             map: mapInstance.current,
             icon: {
               path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 12,
+              scale: 14,
               fillColor: '#a855f7',
               fillOpacity: 1,
               strokeColor: '#fff',
-              strokeWeight: 3,
+              strokeWeight: 4,
             },
             title: 'Your Location',
             zIndex: 9999,
           });
         }
         
-        // Pan map to location and zoom in
-        if (mapInstance.current) {
+        // Zoom in first, then pan to location for smoother experience
+        mapInstance.current.setZoom(15);
+        setTimeout(() => {
           mapInstance.current.panTo({ lat, lng });
-          mapInstance.current.setZoom(12);
-        }
+        }, 100);
         
         // Update search circle
         updateSearchCircle({ lat, lng }, radius);
@@ -939,23 +1130,43 @@ export default function CRM() {
         setLocating(false);
       },
       (error) => {
+        // Clear watch on error
+        if (geoWatchId.current !== null) {
+          navigator.geolocation.clearWatch(geoWatchId.current);
+          geoWatchId.current = null;
+        }
         setLocating(false);
+        
+        let msg = 'Location error';
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            alert('Location access denied. Please enable location permissions.');
+            msg = 'Location access denied';
             break;
           case error.POSITION_UNAVAILABLE:
-            alert('Location information is unavailable.');
+            msg = 'Location unavailable';
             break;
           case error.TIMEOUT:
-            alert('Location request timed out.');
+            msg = 'Location timed out - click to retry';
             break;
           default:
-            alert('An unknown error occurred getting your location.');
+            msg = 'Location error';
         }
+        setLocationError(msg);
+        setTimeout(() => setLocationError(null), 4000);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
     );
+
+    // Fallback timeout in case geolocation hangs
+    setTimeout(() => {
+      if (locating && geoWatchId.current !== null) {
+        navigator.geolocation.clearWatch(geoWatchId.current);
+        geoWatchId.current = null;
+        setLocating(false);
+        setLocationError('Location timed out - click to retry');
+        setTimeout(() => setLocationError(null), 4000);
+      }
+    }, 6000);
   }
 
   // Calculate lead score (0-100)
@@ -1047,8 +1258,8 @@ export default function CRM() {
     }).catch(err => console.error('Copy failed:', err));
   }
 
-  // Add Facebook lead
-  function addFacebookLead(lead) {
+  // Add manual lead
+  function addManualLead(lead) {
     // Add to leads and auto-save to Firebase since it's manually entered
     setLeads(prev => {
       const updated = [...prev, lead];
@@ -1063,10 +1274,8 @@ export default function CRM() {
   // Filter leads based on user permissions
   const visibleLeads = leads.filter(lead => canViewLead(lead));
 
-  // Filter leads based on current filters, search, source, AND user permissions
+  // Filter leads based on current filters, search, AND user permissions
   const filtered = visibleLeads.filter(l => {
-    // Source filter
-    if (sourceFilter !== 'all' && l.source !== sourceFilter) return false;
     // Text search filter
     if (leadSearch) {
       const searchLower = leadSearch.toLowerCase();
@@ -1075,8 +1284,10 @@ export default function CRM() {
       const matchesPhone = l.phone?.includes(leadSearch);
       if (!matchesName && !matchesAddress && !matchesPhone) return false;
     }
-    if (filters.noWeb && l.website) return false;
-    if (filters.noPhone && l.phone) return false;
+    // Only apply no-website filter to leads where details have been fetched (or legacy leads without the flag)
+    if (filters.noWeb && (l.website || l.detailsFetched === false)) return false;
+    // Only apply no-phone filter to leads where details have been fetched (or legacy leads without the flag)
+    if (filters.noPhone && (l.phone || l.detailsFetched === false)) return false;
     if (filters.notCalled && l.status !== 'NEW') return false; // Show only NEW leads
     if (filters.status && l.status !== filters.status) return false;
     if (filters.maxReviews && l.userRatingsTotal > parseInt(filters.maxReviews)) return false;
@@ -1106,32 +1317,6 @@ export default function CRM() {
       l.status !== 'CLOSED'
     );
   }, [filtered]);
-
-  // Current lead in calling mode
-  const currentCallingLead = callingMode && callableLeads.length > 0 
-    ? callableLeads[Math.min(currentCallIndex, callableLeads.length - 1)] 
-    : null;
-
-  // Navigate to next/prev lead in calling mode
-  function nextLead() {
-    if (currentCallIndex < callableLeads.length - 1) {
-      setCurrentCallIndex(prev => prev + 1);
-    }
-  }
-
-  function prevLead() {
-    if (currentCallIndex > 0) {
-      setCurrentCallIndex(prev => prev - 1);
-    }
-  }
-
-  // Quick log call result
-  function quickLogCall(leadId, outcome) {
-    logCall(leadId, outcome, '');
-    updateLeadStatus(leadId, outcome === 'INTERESTED' ? 'INTERESTED' : outcome === 'CALLBACK' ? 'CALLBACK' : 'REJECTED');
-    // Auto-advance to next lead
-    setTimeout(nextLead, 300);
-  }
 
   // Export marked leads to downloadable file
   function exportLeads() {
@@ -1169,7 +1354,7 @@ export default function CRM() {
     return (
       <div className="setup">
         <div className="setup-box">
-          <h1>🗺️ Sales Tracker</h1>
+          <h1>🗺️ Maps Lead Finder</h1>
           <p>Enter your Google Maps API key to get started</p>
           <input placeholder="AIzaSy..." value={keyInput} onChange={e => setKeyInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveKey()} />
           <button onClick={saveKey} disabled={!keyInput.trim()}>Start</button>
@@ -1187,10 +1372,106 @@ export default function CRM() {
     return <UserLoginSelector team={team} onLogin={login} />;
   }
 
+  // Command palette results (computed here so leads is available)
+  const commandResults = commandSearch.trim() 
+    ? leads.filter(l => 
+        l.name?.toLowerCase().includes(commandSearch.toLowerCase()) ||
+        l.phone?.includes(commandSearch) ||
+        l.address?.toLowerCase().includes(commandSearch.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
   return (
     <div className="app">
       <div className="map" ref={mapRef} />
       
+      {/* Floating Map Controls - Outside Panel */}
+      <div className="map-floating-controls">
+        <button 
+          className={`map-float-btn locate-me ${locating ? 'loading' : ''} ${locationError ? 'error' : ''}`}
+          onClick={locateMe}
+          title={locating ? 'Click to cancel' : locationError || 'Find my location'}
+        >
+          {locating ? '✕' : locationError ? '⚠️' : '📍'}
+        </button>
+        {locationError && (
+          <div className="location-error-toast">{locationError}</div>
+        )}
+        <button 
+          className={`map-float-btn toggle-markers ${showLeadMarkers ? 'active' : ''}`}
+          onClick={() => setShowLeadMarkers(!showLeadMarkers)}
+          title={showLeadMarkers ? 'Hide lead pins' : 'Show lead pins'}
+        >
+          {showLeadMarkers ? '📌' : '👁️'}
+        </button>
+        <button 
+          className={`map-float-btn search-cmd`}
+          onClick={() => { setShowCommandPalette(true); setTimeout(() => commandInputRef.current?.focus(), 50); }}
+          title="Quick search (Ctrl+K)"
+        >
+          🔍
+        </button>
+      </div>
+
+      {/* Command Palette - Quick Search */}
+      {showCommandPalette && (
+        <div className="command-palette-overlay" onClick={() => setShowCommandPalette(false)}>
+          <div className="command-palette" onClick={e => e.stopPropagation()}>
+            <div className="command-input-wrap">
+              <span className="command-icon">🔍</span>
+              <input
+                ref={commandInputRef}
+                type="text"
+                placeholder="Search leads by name, phone, address..."
+                value={commandSearch}
+                onChange={e => setCommandSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') setShowCommandPalette(false);
+                  if (e.key === 'Enter' && commandResults.length > 0) {
+                    setSelectedLead(commandResults[0]);
+                    setShowCommandPalette(false);
+                  }
+                }}
+              />
+              <kbd>ESC</kbd>
+            </div>
+            {commandSearch && (
+              <div className="command-results">
+                {commandResults.length === 0 ? (
+                  <div className="command-empty">No leads found</div>
+                ) : (
+                  commandResults.map(lead => {
+                    const statusObj = LEAD_STATUSES.find(s => s.value === lead.status);
+                    return (
+                      <div 
+                        key={lead.id} 
+                        className="command-result"
+                        onClick={() => {
+                          setSelectedLead(lead);
+                          setShowCommandPalette(false);
+                        }}
+                      >
+                        <span className="cr-status" style={{ background: statusObj?.color }}></span>
+                        <div className="cr-info">
+                          <span className="cr-name">{lead.name}</span>
+                          <span className="cr-details">{lead.phone || 'No phone'} • {lead.address?.split(',')[0]}</span>
+                        </div>
+                        <span className="cr-arrow">→</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            <div className="command-hint">
+              <span>🆕 <kbd>N</kbd> New Lead</span>
+              <span>📍 <kbd>L</kbd> Locate Me</span>
+              <span>⏎ Enter to select</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lead Detail Modal */}
       {selectedLead && (
         <LeadDetailModal 
@@ -1228,15 +1509,6 @@ export default function CRM() {
           onZoom={() => { zoomToLead(selectedLead); setSelectedLead(null); }}
           canEdit={canEditLead(selectedLead)}
           canDelete={canDeleteLead()}
-        />
-      )}
-      
-      {/* Facebook Lead Modal */}
-      {showFacebookModal && (
-        <FacebookLeadModal
-          onClose={() => setShowFacebookModal(false)}
-          onSave={addFacebookLead}
-          currentUser={currentUser}
         />
       )}
       
@@ -1314,13 +1586,13 @@ export default function CRM() {
           <button className="toggle-btn" onClick={() => setPanelOpen(!panelOpen)}>{panelOpen ? '◀' : '▶'}</button>
           {panelOpen && (
             <div className="tabs">
-              <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>🗺️ Find</button>
-              <button className={tab === 'leads' ? 'active' : ''} onClick={() => setTab('leads')}>📋 Leads <span className="count">{filtered.length}</span></button>
-              <button className={tab === 'sheet' ? 'active' : ''} onClick={() => setTab('sheet')}>📊 Sheet</button>
+              <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>� Search <span className="count">{filtered.length}</span></button>
+              <a href="/sheet" className="tab-link">📊 Full Sheet →</a>
             </div>
           )}
           {panelOpen && (
             <div className="header-actions">
+              <a href="/sheet" className="icon-btn" title="Full Spreadsheet">📑</a>
               <a href="/" className="icon-btn" title="Back to Home">🏠</a>
               <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
             </div>
@@ -1338,7 +1610,6 @@ export default function CRM() {
                       onChange={e => setBusinessType(e.target.value)} 
                       className="search-select"
                     >
-                      <option value="">Select industry...</option>
                       {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                     <select 
@@ -1362,7 +1633,7 @@ export default function CRM() {
                       onClick={() => search()} 
                       disabled={searching || !businessType}
                     >
-                      {searching ? '⏳ Searching...' : '🔍 Search Maps'}
+                      {searching ? '⏳ Searching...' : '🔍 Search'}
                     </button>
                   </div>
                   
@@ -1370,101 +1641,181 @@ export default function CRM() {
                     <div className="search-hint">👆 Click anywhere on the map to set search center</div>
                   )}
                 </div>
-                
-                {/* Saved Facebook Groups */}
-                <div className="fb-groups-card">
-                  <div className="add-lead-header">📘 Saved Facebook Groups</div>
-                  <p className="fb-explainer">Find groups to monitor, save them here, then check for leads:</p>
-                  
-                  {/* Search for groups */}
-                  <div className="fb-search-buttons">
-                    <button 
-                      className="fb-search-btn google"
-                      onClick={() => {
-                        const query = businessType 
-                          ? BUSINESS_TYPES.find(t => t.value === businessType)?.label || businessType 
-                          : 'small business';
-                        const searchUrl = `https://www.facebook.com/groups/search/groups/?q=${encodeURIComponent(query + ' NJ')}`;
-                        window.open(searchUrl, '_blank');
-                      }}
-                    >
-                      🔍 Find Groups on Facebook
-                    </button>
-                  </div>
-                  
-                  {/* Add new group */}
-                  <div className="add-group-form">
-                    <input
-                      type="text"
-                      placeholder="Group name (e.g. 'NJ Landscaping Referrals')"
-                      value={newGroupName}
-                      onChange={e => setNewGroupName(e.target.value)}
-                    />
-                    <input
-                      type="url"
-                      placeholder="Facebook group URL"
-                      value={newGroupUrl}
-                      onChange={e => setNewGroupUrl(e.target.value)}
-                    />
-                    <button 
-                      className="add-group-btn"
-                      disabled={!newGroupName.trim() || !newGroupUrl.trim()}
-                      onClick={() => {
-                        if (!newGroupName.trim() || !newGroupUrl.trim()) return;
-                        setSavedFbGroups(prev => [...prev, {
-                          id: Date.now(),
-                          name: newGroupName.trim(),
-                          url: newGroupUrl.trim(),
-                          addedAt: Date.now()
-                        }]);
-                        setNewGroupName('');
-                        setNewGroupUrl('');
-                      }}
-                    >
-                      ➕ Save Group
-                    </button>
-                  </div>
-                  
-                  {/* Saved groups list */}
-                  {savedFbGroups.length > 0 && (
-                    <div className="saved-groups-list">
-                      <div className="fb-divider"><span>your saved groups</span></div>
-                      {savedFbGroups.map(group => (
-                        <div key={group.id} className="saved-group-item">
-                          <a href={group.url} target="_blank" rel="noopener noreferrer" className="group-link">
-                            📘 {group.name}
-                          </a>
-                          <button 
-                            className="remove-group-btn"
-                            onClick={() => setSavedFbGroups(prev => prev.filter(g => g.id !== group.id))}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
-                {/* Quick Add Lead - Super Simple */}
+                {/* Search Results / Leads List - MAIN CONTENT */}
+                {leads.length > 0 && (
+                  <div className="search-results-section main-results">
+                    <div className="results-header">
+                      <h4>📋 Results ({filtered.length})</h4>
+                      <div className="results-filters">
+                        <input
+                          type="text"
+                          placeholder="Filter results..."
+                          value={leadSearch}
+                          onChange={e => setLeadSearch(e.target.value)}
+                          className="results-search"
+                        />
+                        <button 
+                          className={`filter-chip ${filters.noWeb ? 'active' : ''}`}
+                          onClick={() => setFilters(f => ({ ...f, noWeb: !f.noWeb }))}
+                        >
+                          🌐 No Website
+                        </button>
+                        <button 
+                          className={`filter-chip ${filters.noPhone ? 'active' : ''}`}
+                          onClick={() => setFilters(f => ({ ...f, noPhone: !f.noPhone }))}
+                        >
+                          📵 No Phone
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Status Filter Tabs */}
+                    <div className="status-tabs">
+                      <button 
+                        className={filters.status === '' ? 'active' : ''}
+                        onClick={() => setFilters(f => ({ ...f, status: '' }))}
+                      >
+                        All <span className="cnt">{leads.length}</span>
+                      </button>
+                      <button 
+                        className={filters.status === 'NEW' ? 'active' : ''}
+                        onClick={() => setFilters(f => ({ ...f, status: 'NEW' }))}
+                      >
+                        New <span className="cnt">{leads.filter(l => l.status === 'NEW').length}</span>
+                      </button>
+                      <button 
+                        className={filters.status === 'CALLBACK' ? 'active' : ''}
+                        onClick={() => setFilters(f => ({ ...f, status: 'CALLBACK' }))}
+                      >
+                        Callback <span className="cnt">{leads.filter(l => l.status === 'CALLBACK').length}</span>
+                      </button>
+                      <button 
+                        className={filters.status === 'INTERESTED' ? 'active' : ''}
+                        onClick={() => setFilters(f => ({ ...f, status: 'INTERESTED' }))}
+                      >
+                        Hot <span className="cnt">{leads.filter(l => l.status === 'INTERESTED').length}</span>
+                      </button>
+                    </div>
+                    
+                    {/* Scrollable Lead List */}
+                    <div className="leads-list">
+                      {filtered.length === 0 && (
+                        <div className="empty-state">
+                          {leadSearch ? 'No leads match your search' : 'No leads match filters'}
+                        </div>
+                      )}
+                      {filtered.map(lead => {
+                        const statusObj = LEAD_STATUSES.find(s => s.value === lead.status) || LEAD_STATUSES[0];
+                        return (
+                          <div 
+                            key={lead.id} 
+                            className={`lead-card ${lead.status === 'INTERESTED' ? 'hot' : ''}`}
+                            onClick={() => setSelectedLead(lead)}
+                          >
+                            <div className="lead-card-header">
+                              <span className="lead-name">{lead.name}</span>
+                              <span className={`lead-status ${lead.status.toLowerCase()}`}>
+                                {statusObj.label}
+                              </span>
+                            </div>
+                            <div className="lead-card-body">
+                              <span className="lead-address">📍 {lead.address}</span>
+                              {lead.phone && (
+                                <a 
+                                  href={`tel:${lead.phone}`} 
+                                  className="lead-phone"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  📞 {lead.phone}
+                                </a>
+                              )}
+                            </div>
+                            {/* Quick Status Buttons */}
+                            <div className="lead-card-actions" onClick={e => e.stopPropagation()}>
+                              <button 
+                                className={`status-quick-btn called ${lead.status === 'CALLED' ? 'active' : ''}`}
+                                onClick={() => updateLeadStatus(lead.id, 'CALLED')}
+                                title="Mark as Called"
+                              >📞</button>
+                              <button 
+                                className={`status-quick-btn callback ${lead.status === 'CALLBACK' ? 'active' : ''}`}
+                                onClick={() => updateLeadStatus(lead.id, 'CALLBACK')}
+                                title="Schedule Callback"
+                              >🔄</button>
+                              <button 
+                                className={`status-quick-btn interested ${lead.status === 'INTERESTED' ? 'active' : ''}`}
+                                onClick={() => updateLeadStatus(lead.id, 'INTERESTED')}
+                                title="Mark Interested"
+                              >✅</button>
+                              <button 
+                                className={`status-quick-btn rejected ${lead.status === 'REJECTED' ? 'active' : ''}`}
+                                onClick={() => updateLeadStatus(lead.id, 'REJECTED')}
+                                title="Mark Rejected"
+                              >❌</button>
+                              <button 
+                                className={`status-quick-btn add-sheet ${lead.isLead ? 'active' : ''}`}
+                                onClick={() => {
+                                  setLeads(prev => prev.map(l => 
+                                    l.id === lead.id ? { ...l, isLead: true, lastUpdated: Date.now() } : l
+                                  ));
+                                }}
+                                title={lead.isLead ? 'On Sheet ✓' : 'Add to Sheet'}
+                              >📋</button>
+                              <button 
+                                className="status-quick-btn zoom"
+                                onClick={() => zoomToLead(lead)}
+                                title="Show on Map"
+                              >🗺️</button>
+                            </div>
+                            <div className="lead-card-footer">
+                              <span className={`source-tag ${lead.source || 'google_maps'}`}>
+                                {lead.source === 'manual' ? '✏️ Manual' : '🗺️ Maps'}
+                              </span>
+                              {lead.detailsFetched === false && lead.source !== 'manual' && (
+                                <span className="loading-tag">⏳</span>
+                              )}
+                              {lead.detailsFetched !== false && !lead.website && <span className="no-web-tag">No 🌐</span>}
+                              {lead.detailsFetched !== false && !lead.phone && <span className="no-phone-tag">No 📞</span>}
+                              {lead.notes && <span className="has-notes">📝</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Clear All Button */}
+                    <button 
+                      className="clear-all-btn"
+                      onClick={clearAllLeads}
+                      title="Delete all leads"
+                    >
+                      🗑️ Clear All Results
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick Add Lead */}
                 <div className="quick-add-card">
+                  <div className="add-lead-header">➕ Quick Add Lead</div>
                   <div className="quick-add-row">
                     <input
                       type="text"
                       placeholder="Business name"
-                      value={quickAddData.name}
-                      onChange={e => setQuickAddData(prev => ({ ...prev, name: e.target.value }))}
+                      id="quick-add-name"
                       onKeyDown={e => {
-                        if (e.key === 'Enter' && quickAddData.name.trim()) {
+                        if (e.key === 'Enter' && e.target.value.trim()) {
+                          const nameInput = document.getElementById('quick-add-name');
+                          const phoneInput = document.getElementById('quick-add-phone');
                           const lead = {
                             id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                            name: quickAddData.name.trim(),
-                            phone: quickAddData.phone.trim() || null,
-                            address: 'Facebook Lead',
-                            lat: null,
-                            lng: null,
+                            name: nameInput.value.trim(),
+                            phone: phoneInput.value.trim() || null,
+                            address: 'Manual Entry',
+                            lat: droppedPin?.lat || null,
+                            lng: droppedPin?.lng || null,
                             website: null,
-                            source: 'facebook',
+                            source: 'manual',
                             sourceDetails: {},
                             status: 'NEW',
                             notes: '',
@@ -1478,59 +1829,65 @@ export default function CRM() {
                             rating: null,
                             userRatingsTotal: 0,
                           };
-                          addFacebookLead(lead);
-                          setQuickAddData({ name: '', phone: '' });
+                          addManualLead(lead);
+                          nameInput.value = '';
+                          phoneInput.value = '';
                         }
                       }}
                     />
                     <input
                       type="tel"
                       placeholder="Phone"
-                      value={quickAddData.phone}
-                      onChange={e => setQuickAddData(prev => ({ ...prev, phone: e.target.value }))}
+                      id="quick-add-phone"
                       onKeyDown={e => {
-                        if (e.key === 'Enter' && quickAddData.name.trim()) {
-                          const lead = {
-                            id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                            name: quickAddData.name.trim(),
-                            phone: quickAddData.phone.trim() || null,
-                            address: 'Facebook Lead',
-                            lat: null,
-                            lng: null,
-                            website: null,
-                            source: 'facebook',
-                            sourceDetails: {},
-                            status: 'NEW',
-                            notes: '',
-                            addedBy: currentUser?.name || 'Unknown',
-                            assignedTo: '',
-                            callHistory: [],
-                            addedAt: Date.now(),
-                            lastUpdated: Date.now(),
-                            businessType: businessType || 'other',
-                            isLead: true,
-                            rating: null,
-                            userRatingsTotal: 0,
-                          };
-                          addFacebookLead(lead);
-                          setQuickAddData({ name: '', phone: '' });
+                        if (e.key === 'Enter') {
+                          const nameInput = document.getElementById('quick-add-name');
+                          if (nameInput.value.trim()) {
+                            const phoneInput = document.getElementById('quick-add-phone');
+                            const lead = {
+                              id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                              name: nameInput.value.trim(),
+                              phone: phoneInput.value.trim() || null,
+                              address: 'Manual Entry',
+                              lat: droppedPin?.lat || null,
+                              lng: droppedPin?.lng || null,
+                              website: null,
+                              source: 'manual',
+                              sourceDetails: {},
+                              status: 'NEW',
+                              notes: '',
+                              addedBy: currentUser?.name || 'Unknown',
+                              assignedTo: '',
+                              callHistory: [],
+                              addedAt: Date.now(),
+                              lastUpdated: Date.now(),
+                              businessType: businessType || 'other',
+                              isLead: true,
+                              rating: null,
+                              userRatingsTotal: 0,
+                            };
+                            addManualLead(lead);
+                            nameInput.value = '';
+                            phoneInput.value = '';
+                          }
                         }
                       }}
                     />
                     <button 
                       className="quick-add-btn"
-                      disabled={!quickAddData.name.trim()}
                       onClick={() => {
-                        if (!quickAddData.name.trim()) return;
+                        const nameInput = document.getElementById('quick-add-name');
+                        const phoneInput = document.getElementById('quick-add-phone');
+                        if (!nameInput.value.trim()) return;
                         const lead = {
                           id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                          name: quickAddData.name.trim(),
-                          phone: quickAddData.phone.trim() || null,
-                          address: 'Facebook Lead',
-                          lat: null,
-                          lng: null,
+                          name: nameInput.value.trim(),
+                          phone: phoneInput.value.trim() || null,
+                          address: 'Manual Entry',
+                          lat: droppedPin?.lat || null,
+                          lng: droppedPin?.lng || null,
                           website: null,
-                          source: 'facebook',
+                          source: 'manual',
                           sourceDetails: {},
                           status: 'NEW',
                           notes: '',
@@ -1544,14 +1901,15 @@ export default function CRM() {
                           rating: null,
                           userRatingsTotal: 0,
                         };
-                        addFacebookLead(lead);
-                        setQuickAddData({ name: '', phone: '' });
+                        addManualLead(lead);
+                        nameInput.value = '';
+                        phoneInput.value = '';
                       }}
                     >
                       ➕
                     </button>
                   </div>
-                  <div className="quick-add-hint">📘 Type name + phone, press Enter or click ➕</div>
+                  <div className="quick-add-hint">Type name + phone, press Enter or click ➕</div>
                 </div>
                 
                 {/* Quick Stats */}
@@ -1571,129 +1929,111 @@ export default function CRM() {
                 </div>
               </div>
             )}
-            {tab === 'leads' && (
-              <div className="leads-tab">
-                {/* Search Bar */}
-                <div className="leads-search-bar">
-                  <input
-                    type="text"
-                    placeholder="🔍 Search leads..."
-                    value={leadSearch}
-                    onChange={e => setLeadSearch(e.target.value)}
-                  />
-                  {leadSearch && (
-                    <button className="clear-btn" onClick={() => setLeadSearch('')}>×</button>
-                  )}
-                </div>
-                
-                {/* Status Filter Tabs */}
-                <div className="status-tabs">
-                  <button 
-                    className={filters.status === '' ? 'active' : ''}
-                    onClick={() => setFilters(f => ({ ...f, status: '' }))}
-                  >
-                    All <span className="cnt">{leads.length}</span>
-                  </button>
-                  <button 
-                    className={filters.status === 'NEW' ? 'active' : ''}
-                    onClick={() => setFilters(f => ({ ...f, status: 'NEW' }))}
-                  >
-                    New <span className="cnt">{leads.filter(l => l.status === 'NEW').length}</span>
-                  </button>
-                  <button 
-                    className={filters.status === 'CALLBACK' ? 'active' : ''}
-                    onClick={() => setFilters(f => ({ ...f, status: 'CALLBACK' }))}
-                  >
-                    Callback <span className="cnt">{leads.filter(l => l.status === 'CALLBACK').length}</span>
-                  </button>
-                  <button 
-                    className={filters.status === 'INTERESTED' ? 'active' : ''}
-                    onClick={() => setFilters(f => ({ ...f, status: 'INTERESTED' }))}
-                  >
-                    Hot <span className="cnt">{leads.filter(l => l.status === 'INTERESTED').length}</span>
-                  </button>
-                </div>
-                
-                {/* Quick Filters */}
-                <div className="quick-filters">
-                  <button 
-                    className={`filter-chip ${filters.noWeb ? 'active' : ''}`}
-                    onClick={() => setFilters(f => ({ ...f, noWeb: !f.noWeb }))}
-                  >
-                    🌐 No Website
-                  </button>
-                  <button 
-                    className={`filter-chip ${sourceFilter === 'google_maps' ? 'active' : ''}`}
-                    onClick={() => setSourceFilter(sourceFilter === 'google_maps' ? 'all' : 'google_maps')}
-                  >
-                    🗺️ Maps Only
-                  </button>
-                </div>
-                
-                {/* Scrollable Lead List */}
-                <div className="leads-list">
-                  {filtered.length === 0 && (
-                    <div className="empty-state">
-                      {leadSearch ? 'No leads match your search' : 'No leads yet. Go to Find tab to search!'}
-                    </div>
-                  )}
-                  {filtered.map(lead => {
-                    const statusObj = LEAD_STATUSES.find(s => s.value === lead.status) || LEAD_STATUSES[0];
-                    return (
-                      <div 
-                        key={lead.id} 
-                        className={`lead-card ${lead.status === 'INTERESTED' ? 'hot' : ''}`}
-                        onClick={() => setSelectedLead(lead)}
-                      >
-                        <div className="lead-card-header">
-                          <span className="lead-name">{lead.name}</span>
-                          <span className={`lead-status ${lead.status.toLowerCase()}`}>
-                            {statusObj.label}
-                          </span>
-                        </div>
-                        <div className="lead-card-body">
-                          <span className="lead-address">📍 {lead.address}</span>
-                          {lead.phone && (
-                            <a 
-                              href={`tel:${lead.phone}`} 
-                              className="lead-phone"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              📞 {lead.phone}
-                            </a>
-                          )}
-                        </div>
-                        <div className="lead-card-footer">
-                          <span className={`source-tag ${lead.source || 'google_maps'}`}>
-                            {lead.source === 'facebook' ? '📘 Facebook' : '🗺️ Maps'}
-                          </span>
-                          {!lead.website && <span className="no-web-tag">No 🌐</span>}
-                          {lead.notes && <span className="has-notes">📝</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            
-            {tab === 'sheet' && (
-              <div className="sheet-tab">
-                <TeamSheet
-                  leads={leads}
-                  team={team}
-                  currentUser={currentUser}
-                  onSelectLead={setSelectedLead}
-                />
-              </div>
-            )}
           </div>
         )}
       </div>
+      
+      {/* Floating Action Button - Quick Add Lead */}
+      <button 
+        className="fab-add-lead"
+        onClick={() => { setShowQuickAddModal(true); setTimeout(() => quickAddNameRef.current?.focus(), 50); }}
+        title="Add New Lead (N)"
+      >
+        ➕
+      </button>
+
+      {/* Quick Add Lead Modal */}
+      {showQuickAddModal && (
+        <div className="modal-overlay" onClick={() => setShowQuickAddModal(false)}>
+          <div className="quick-add-modal" onClick={e => e.stopPropagation()}>
+            <div className="qam-header">
+              <h3>➕ Add New Lead</h3>
+              <button onClick={() => setShowQuickAddModal(false)}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target;
+              const name = form.leadName.value.trim();
+              if (!name) return;
+              
+              const lead = {
+                id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: name,
+                phone: form.leadPhone.value.trim() || null,
+                address: form.leadAddress.value.trim() || 'Manual Entry',
+                lat: droppedPin?.lat || null,
+                lng: droppedPin?.lng || null,
+                website: null,
+                source: 'manual',
+                sourceDetails: {},
+                status: form.leadStatus.value || 'NEW',
+                notes: form.leadNotes.value.trim() || '',
+                addedBy: currentUser?.name || 'Unknown',
+                assignedTo: '',
+                callHistory: [],
+                addedAt: Date.now(),
+                lastUpdated: Date.now(),
+                businessType: businessType || 'other',
+                isLead: true,
+                rating: null,
+                userRatingsTotal: 0,
+              };
+              addManualLead(lead);
+              setShowQuickAddModal(false);
+            }}>
+              <div className="qam-field">
+                <label>Business Name *</label>
+                <input 
+                  ref={quickAddNameRef}
+                  name="leadName" 
+                  type="text" 
+                  placeholder="e.g. Joe's Plumbing" 
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div className="qam-row">
+                <div className="qam-field">
+                  <label>Phone</label>
+                  <input name="leadPhone" type="tel" placeholder="(555) 123-4567" />
+                </div>
+                <div className="qam-field">
+                  <label>Status</label>
+                  <select name="leadStatus" defaultValue="NEW">
+                    {LEAD_STATUSES.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="qam-field">
+                <label>Address</label>
+                <input name="leadAddress" type="text" placeholder="123 Main St, City, State" />
+              </div>
+              <div className="qam-field">
+                <label>Notes</label>
+                <textarea name="leadNotes" rows="2" placeholder="Any notes about this lead..." />
+              </div>
+              <div className="qam-actions">
+                <button type="button" className="qam-cancel" onClick={() => setShowQuickAddModal(false)}>Cancel</button>
+                <button type="submit" className="qam-submit">➕ Add Lead</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="legend">
         {LEAD_STATUSES.map(s => (
           <span key={s.value}><i style={{ background: s.color }}></i> {s.label.split(' ')[1]}</span>
         ))}
+      </div>
+      
+      {/* Keyboard Shortcuts Hint */}
+      <div className="keyboard-hints-bar">
+        <span><kbd>N</kbd> New Lead</span>
+        <span><kbd>L</kbd> Locate Me</span>
+        <span><kbd>Ctrl</kbd>+<kbd>K</kbd> Search</span>
       </div>
     </div>
   );

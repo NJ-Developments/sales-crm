@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { saveLead } from '../firebase';
 import './TeamSheet.css';
 
 const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
@@ -9,6 +11,10 @@ const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
   const [sortBy, setSortBy] = useState('lastUpdated');
   const [sortDir, setSortDir] = useState('desc');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Quick add state
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickLead, setQuickLead] = useState({ name: '', phone: '', notes: '' });
 
   // Get start of today, this week, etc.
   const getDateThreshold = (period) => {
@@ -49,6 +55,25 @@ const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
   const getTodaysCalls = (lead) => {
     const todayStart = getDateThreshold('today');
     return lead.callHistory?.filter(call => call.date >= todayStart) || [];
+  };
+
+  // Parse town/state from address string
+  // Address format is typically: "123 Main St, Town, State ZIP, Country"
+  const parseTownState = (address) => {
+    if (!address || address === 'Manual Entry') return { town: '-', state: '-' };
+    
+    const parts = address.split(',').map(p => p.trim());
+    if (parts.length < 3) return { town: parts[0] || '-', state: '-' };
+    
+    // Town is usually the second part
+    const town = parts[1] || '-';
+    
+    // State + ZIP is usually the third part (e.g., "NJ 07081")
+    const stateZipPart = parts[2] || '';
+    const stateMatch = stateZipPart.match(/^([A-Z]{2})/);
+    const state = stateMatch ? stateMatch[1] : stateZipPart.split(' ')[0] || '-';
+    
+    return { town, state };
   };
 
   // Get last interaction info
@@ -193,8 +218,77 @@ const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
     return { todayCalls, todayLeads, totalCalls };
   }, [leads]);
 
+  // Quick add lead
+  const handleQuickAdd = async () => {
+    if (!quickLead.name.trim()) return;
+    
+    const leadData = {
+      name: quickLead.name.trim(),
+      phone: quickLead.phone.trim(),
+      notes: quickLead.notes.trim(),
+      status: 'NEW',
+      source: 'manual',
+      isLead: true,
+      addedBy: currentUser?.name || 'Unknown',
+      addedAt: Date.now(),
+      lastUpdated: Date.now()
+    };
+    
+    try {
+      await saveLead(leadData);
+      setQuickLead({ name: '', phone: '', notes: '' });
+      setShowQuickAdd(false);
+    } catch (err) {
+      console.error('Failed to add lead:', err);
+    }
+  };
+
   return (
     <div className="team-sheet">
+      {/* Quick Add Bar */}
+      <div className="quick-add-bar">
+        {showQuickAdd ? (
+          <div className="quick-add-form">
+            <input
+              type="text"
+              placeholder="Business name..."
+              value={quickLead.name}
+              onChange={(e) => setQuickLead(prev => ({ ...prev, name: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+              autoFocus
+            />
+            <input
+              type="text"
+              placeholder="Phone..."
+              value={quickLead.phone}
+              onChange={(e) => setQuickLead(prev => ({ ...prev, phone: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+            />
+            <input
+              type="text"
+              placeholder="Notes..."
+              value={quickLead.notes}
+              onChange={(e) => setQuickLead(prev => ({ ...prev, notes: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+            />
+            <button className="save-btn" onClick={handleQuickAdd}>✓ Save</button>
+            <button className="cancel-btn" onClick={() => {
+              setShowQuickAdd(false);
+              setQuickLead({ name: '', phone: '', notes: '' });
+            }}>✕</button>
+          </div>
+        ) : (
+          <div className="quick-add-actions">
+            <button className="add-lead-btn" onClick={() => setShowQuickAdd(true)}>
+              ➕ Quick Add Lead
+            </button>
+            <Link to="/sheet" className="full-sheet-link">
+              📑 Open Full Spreadsheet →
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Stats Bar */}
       <div className="sheet-stats">
         <div className="stat-item">
@@ -272,6 +366,7 @@ const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
               <th onClick={() => handleSort('name')} className="sortable">
                 Business {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
+              <th>Location</th>
               <th onClick={() => handleSort('status')} className="sortable">
                 Status {sortBy === 'status' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
@@ -298,6 +393,17 @@ const TeamSheet = ({ leads, team, currentUser, onSelectLead }) => {
                     <div className="lead-name">{lead.name}</div>
                     <div className="lead-address">{lead.address}</div>
                     {lead.phone && <div className="lead-phone">{lead.phone}</div>}
+                  </td>
+                  <td className="location-cell">
+                    {(() => {
+                      const { town, state } = parseTownState(lead.address);
+                      return (
+                        <>
+                          <div className="location-town">{town}</div>
+                          <div className="location-state">{state}</div>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td>
                     <span className={`status-badge ${getStatusClass(lead.status)}`}>

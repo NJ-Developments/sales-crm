@@ -497,10 +497,12 @@
   padding: 16px 20px;
   background: #1a3a5c;
   border-top: 1px solid #2a4a6c;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.maps-btn {
-  padding: 10px 20px;
+.google-btn {
+  padding: 10px 16px;
   background: #2a4a6c;
   border: 1px solid #3a5a7c;
   border-radius: 8px;
@@ -510,9 +512,26 @@
   transition: all 0.2s;
 }
 
-.maps-btn:hover {
+.google-btn:hover {
   background: #3a5a7c;
-  border-color: #2a9d8f;
+  border-color: #4285f4;
+  color: #4285f4;
+}
+
+.owner-search-btn {
+  padding: 10px 16px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid #22c55e;
+  border-radius: 8px;
+  color: #22c55e;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.owner-search-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  transform: translateY(-1px);
 }
 
 .delete-btn {
@@ -528,6 +547,167 @@
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
+}
+
+/* Owner Section Styles */
+.owner-section {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 12px;
+  padding: 16px !important;
+  margin-bottom: 16px;
+}
+
+.owner-section h4 {
+  margin-bottom: 12px;
+  color: #22c55e;
+}
+
+.owner-display {
+  min-height: 40px;
+}
+
+.owner-searching {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8aaaba;
+  font-size: 14px;
+}
+
+.owner-searching .spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.owner-found {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.owner-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #22c55e;
+  background: linear-gradient(135deg, #22c55e 0%, #14b8a6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.owner-source {
+  font-size: 12px;
+  color: #6b8a9a;
+  font-style: italic;
+}
+
+.owner-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.owner-actions button {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #3a5a7c;
+  border-radius: 6px;
+  color: #8aaaba;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.owner-actions button:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.owner-not-found {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.no-owner {
+  color: #6b8a9a;
+  font-size: 14px;
+}
+
+.owner-not-found .owner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.add-owner-btn,
+.retry-owner-btn {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+}
+
+.add-owner-btn {
+  background: rgba(34, 197, 94, 0.15) !important;
+  border: 1px solid #22c55e !important;
+  color: #22c55e !important;
+}
+
+.retry-owner-btn {
+  background: rgba(6, 182, 212, 0.15) !important;
+  border: 1px solid #06b6d4 !important;
+  color: #06b6d4 !important;
+}
+
+.owner-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.owner-edit input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  background: #1a3a5c;
+  border: 1px solid #3a5a7c;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.owner-edit input:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
+.owner-edit .save-btn {
+  padding: 8px 14px;
+  background: #22c55e;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.owner-edit .cancel-btn {
+  padding: 8px 14px;
+  background: #3a5a7c;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
 }
 
 /* Modal Title Row with Source Badge */
