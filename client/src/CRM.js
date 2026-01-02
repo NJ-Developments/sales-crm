@@ -9,8 +9,6 @@ import './components/FacebookLeadModal.css';
 import TeamSheet from './components/TeamSheet';
 import './components/TeamSheet.css';
 import { useUserRole, UserLoginSelector, TeamManagementPanel, UserBadge } from './components/UserRoles';
-import InvoiceGenerator from './components/InvoiceGenerator';
-import ContractGenerator from './components/ContractGenerator';
 
 // Lead sources
 const LEAD_SOURCES = {
