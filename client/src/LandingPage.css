@@ -226,13 +226,13 @@
 .landing-page .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
 }
 
 .landing-page .logo-img {
-  height: 45px;
+  height: 60px;
   width: auto;
 }
 

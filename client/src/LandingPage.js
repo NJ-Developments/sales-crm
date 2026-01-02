@@ -88,7 +88,6 @@ export default function LandingPage() {
       <section id="home" className="hero">
         <div className="hero-content">
           <div>
-            <div className="hero-badge">Custom Digital Solutions</div>
             <h1>We Build <span className="gradient-text">Digital Experiences</span> That Drive Growth</h1>
             <p>From stunning websites to custom platforms, we transform your business with technology solutions that actually work.</p>
             <div className="hero-buttons">
@@ -131,7 +130,6 @@ export default function LandingPage() {
       <section id="services" className="services">
         <div className="container">
           <div className="section-header">
-            <span className="section-tag">What We Do</span>
             <h2>Services That <span className="gradient-text">Transform</span> Your Business</h2>
             <p>We deliver end-to-end digital solutions tailored to your unique needs</p>
           </div>
@@ -205,7 +203,6 @@ export default function LandingPage() {
       <section id="process" className="process">
         <div className="container">
           <div className="section-header">
-            <span className="section-tag">How We Work</span>
             <h2>Simple Process, <span className="gradient-text">Powerful Results</span></h2>
             <p>We keep things straightforward so you can focus on running your business</p>
           </div>
@@ -247,7 +244,6 @@ export default function LandingPage() {
         <div className="container">
           <div className="about-content">
             <div className="about-text">
-              <span className="section-tag">About Us</span>
               <h2>Built by Developers Who <span className="gradient-text">Understand Business</span></h2>
               <p>NJ Developments was founded with one mission: to give small and medium businesses access to the same powerful digital tools that big companies use—without the enterprise price tag.</p>
               <p>We're not a faceless agency. We're developers who pick up the phone, solve problems fast, and actually care if your business grows.</p>
@@ -282,6 +278,13 @@ export default function LandingPage() {
                     <p>Co-Founder & Developer</p>
                   </div>
                 </div>
+                <div className="team-member">
+                  <div className="member-avatar">IB</div>
+                  <div className="member-info">
+                    <h4>Iamiah Bartlett</h4>
+                    <p>Co-Founder</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -292,7 +295,6 @@ export default function LandingPage() {
       <section id="portfolio" className="portfolio">
         <div className="container">
           <div className="section-header">
-            <span className="section-tag">Our Work</span>
             <h2>Projects We've <span className="gradient-text">Built</span></h2>
             <p>Real solutions for real businesses. Check out some of our live projects.</p>
           </div>
@@ -396,7 +398,6 @@ export default function LandingPage() {
       <section id="contact" className="contact">
         <div className="container">
           <div className="section-header">
-            <span className="section-tag">Get In Touch</span>
             <h2>Let's <span className="gradient-text">Start Building</span></h2>
             <p>Ready to take your business to the next level? Reach out and let's talk.</p>
           </div>
