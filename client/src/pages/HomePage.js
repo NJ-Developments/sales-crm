@@ -10,10 +10,10 @@ const HomePage = () => {
   }, []);
 
   const services = [
-    { icon: 'fas fa-globe', title: 'Website Development', desc: 'Professional, mobile-first websites that convert' },
-    { icon: 'fas fa-shopping-cart', title: 'Online Ordering', desc: 'Seamless POS & payment integration' },
-    { icon: 'fas fa-robot', title: 'AI Reception', desc: '24/7 AI phone & chat support' },
-    { icon: 'fas fa-mobile-alt', title: 'App Development', desc: 'Custom iOS & Android apps' },
+    { icon: 'fas fa-globe', title: 'Websites That Work', desc: 'Fast, modern websites designed to turn visitors into customers—not just look good' },
+    { icon: 'fas fa-code', title: 'Custom Software', desc: 'Built-from-scratch platforms like booking systems, member portals, and tournament management' },
+    { icon: 'fas fa-search', title: 'SEO & Visibility', desc: 'Get found on Google. We optimize your presence so customers find you first' },
+    { icon: 'fas fa-headset', title: 'Ongoing Support', desc: 'We don\'t disappear after launch. Real support from real people who know your project' },
   ];
 
   return (
@@ -25,8 +25,8 @@ const HomePage = () => {
         <div className="hero-bg"></div>
         <div className="container">
           <div className="hero-content">
-            <h1>We Build <span className="gradient-text">Digital Experiences</span> That Drive Growth</h1>
-            <p>From websites to AI-powered systems, we help local businesses thrive in the digital age.</p>
+            <h1>Websites, Custom Software & <span className="gradient-text">Digital Growth</span> for Your Business</h1>
+            <p>We build high-performance websites, custom platforms (like tournament systems and booking tools), and handle your SEO—so you can focus on running your business.</p>
             <div className="hero-ctas">
               <Link to="/contact" className="btn btn-primary">Start Your Project</Link>
               <Link to="/services" className="btn btn-secondary">Our Services</Link>
@@ -40,8 +40,8 @@ const HomePage = () => {
       <section className="services-preview">
         <div className="container">
           <div className="section-header">
-            <h2>What We <span className="gradient-text">Build</span></h2>
-            <p>End-to-end digital solutions for modern businesses</p>
+            <h2>What We <span className="gradient-text">Do</span></h2>
+            <p>We specialize in websites, custom software, and SEO</p>
           </div>
           <div className="services-grid">
             {services.map((service, i) => (

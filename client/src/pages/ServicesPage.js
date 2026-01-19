@@ -13,57 +13,57 @@ const ServicesPage = () => {
     {
       icon: 'fas fa-globe',
       title: 'Website Development',
-      desc: 'Professional, mobile-first websites designed to convert visitors into customers. SEO optimized and lightning fast.',
-      features: ['Custom Design', 'Mobile Responsive', 'SEO Optimized', 'Fast Loading'],
+      desc: 'High-performance, mobile-first websites designed to convert visitors into customers. Built with modern SEO structures to ensure long-term visibility and speed.',
+      features: ['Custom Design', 'Mobile Responsiveness', 'SEO Architecture', 'Speed Optimization'],
       popular: true
     },
     {
       icon: 'fas fa-shopping-cart',
       title: 'Online Ordering & POS',
-      desc: 'Seamless ordering systems with Toast, Square, or custom solutions. Integrated payment processing with Stripe.',
+      desc: 'Seamless ordering systems compatible with Toast, Square, or custom hardware. Integrated payment processing for smooth, secure transactions.',
       features: ['Toast Integration', 'Stripe Payments', 'DoorDash Drive', 'Real-time Orders'],
       popular: true
     },
     {
       icon: 'fas fa-cogs',
       title: 'Custom Platforms',
-      desc: 'Purpose-built systems that replace fragmented tools. Tournaments, memberships, scheduling, and more.',
+      desc: 'Purpose-built web applications that replace fragmented, manual tools. Handles complex logic like tournaments, memberships, and scheduling.',
       features: ['Admin Dashboards', 'Member Management', 'Custom Workflows', 'Data Analytics'],
       popular: false
     },
     {
       icon: 'fas fa-search',
       title: 'Google Business & SEO',
-      desc: 'Get found when customers search. Google Business optimization and local SEO to drive foot traffic.',
-      features: ['Google Maps Ranking', 'Local SEO', 'Review Management', 'Analytics'],
+      desc: 'Local search optimization to ensure your business appears when customers search. Full management of Google Business profiles to drive foot traffic.',
+      features: ['Google Maps Ranking', 'Local SEO', 'Review Management', 'Performance Analytics'],
       popular: false
     },
     {
       icon: 'fas fa-headset',
       title: 'Ongoing Support',
-      desc: "We don't just build and leave. Live support, updates, and maintenance to keep everything running smoothly.",
-      features: ['Priority Support', 'Regular Updates', 'Monthly Reports', 'Training'],
+      desc: 'Reliable post-launch maintenance so you never worry about updates or security. Live tech support and regular improvements to keep your business running.',
+      features: ['Priority Support', 'Regular Updates', 'Monthly Reports', 'Staff Training'],
       popular: false
     },
     {
       icon: 'fas fa-bullhorn',
       title: 'Marketing & Ads',
-      desc: 'Targeted advertising campaigns on Google and social media to bring new customers through your door.',
-      features: ['Google Ads', 'Facebook & Instagram', 'ROI Tracking', 'A/B Testing'],
+      desc: 'Targeted advertising campaigns designed to maximize return on investment. Multi-channel management across Google, Facebook, and Instagram.',
+      features: ['Google Ads', 'Social Media Ads', 'ROI Tracking', 'A/B Testing'],
       popular: false
     },
     {
       icon: 'fas fa-robot',
       title: 'AI Reception & Chat',
-      desc: '24/7 AI-powered chat and phone reception that answers questions, takes orders, and books appointments.',
+      desc: '24/7 AI-powered reception to answer calls and website chats instantly. Captures leads and books appointments automatically, day or night.',
       features: ['AI Phone Answering', 'Website Chatbot', 'Appointment Booking', 'Lead Capture'],
       popular: false
     },
     {
       icon: 'fas fa-mobile-alt',
       title: 'App Development',
-      desc: 'Custom mobile apps for iOS and Android. Loyalty programs, ordering, reservations, and more.',
-      features: ['iOS & Android', 'Push Notifications', 'Loyalty Programs', 'Offline Support'],
+      desc: 'Native mobile applications for iOS and Android to engage loyal customers. Includes advanced features like push notifications and offline access.',
+      features: ['iOS & Android Apps', 'Push Notifications', 'Loyalty Programs', 'Offline Support'],
       popular: false
     },
   ];

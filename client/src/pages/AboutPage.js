@@ -15,20 +15,23 @@ const AboutPage = () => {
     {
       initials: 'JB',
       name: 'Jamiah Barlett',
-      role: 'Founder',
-      card: '/cards/jamiah-card.png'
+      role: 'Founder & Developer',
+      card: '/cards/jamiah-card.png',
+      headshot: '/headshots/Iamiah.png'
     },
     {
       initials: 'JF',
       name: 'Javier Flores',
       role: 'Founder & Developer',
-      card: '/cards/javier-card.png'
+      card: '/cards/javier-card.png',
+      headshot: '/headshots/javier.png'
     },
     {
       initials: 'NK',
       name: 'Nolan Krieger',
       role: 'Founder & Developer',
-      card: '/cards/nolan-card.png'
+      card: '/cards/nolan-card.png',
+      headshot: '/headshots/nolan.png'
     }
   ];
 
@@ -115,7 +118,13 @@ const AboutPage = () => {
                   className={`team-card ${member.card ? 'clickable' : ''}`}
                   onClick={() => member.card && setSelectedCard(member)}
                 >
-                  <div className="team-avatar">{member.initials}</div>
+                  <div className="team-avatar">
+                    {member.headshot ? (
+                      <img src={member.headshot} alt={member.name} className="team-headshot" />
+                    ) : (
+                      member.initials
+                    )}
+                  </div>
                   <div className="team-info">
                     <h4>{member.name}</h4>
                     <span>{member.role}</span>

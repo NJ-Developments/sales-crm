@@ -11,53 +11,36 @@ const PortfolioPage = () => {
 
   const projects = [
     {
-      title: "Odie's Deli & Diner",
-      category: 'Restaurant Website',
-      desc: 'Full-service deli website with online ordering integration and menu management.',
-      tags: ['Website', 'Online Ordering', 'SEO'],
-      initials: 'OD',
-      link: 'https://odiesdeli.com'
+      title: 'Ace Hardware',
+      category: 'E-commerce & Inventory',
+      desc: 'Complete hardware store digital solution with inventory management and online ordering system.',
+      tags: ['Website', 'E-commerce', 'Inventory'],
+      image: '/logos/ace-hardware.png',
+      link: '#'
     },
     {
-      title: 'GolfCove',
+      title: 'Golf Cove',
       category: 'Golf Course Platform',
       desc: 'Complete golf course management platform with tee time booking and membership system.',
       tags: ['Custom Platform', 'Booking System', 'Members'],
-      initials: 'GC',
+      image: '/logos/golf-cove.png',
       link: '#'
     },
     {
-      title: 'Ice Cream Shop POS',
+      title: 'Ice Cream Productions',
       category: 'Point of Sale',
-      desc: 'Custom ordering system with Toast integration and loyalty rewards program.',
-      tags: ['POS', 'Toast', 'Loyalty'],
-      initials: 'IC',
+      desc: 'Custom ordering system with POS integration and loyalty rewards program.',
+      tags: ['POS', 'Ordering', 'Loyalty'],
+      image: '/logos/ice-cream-productions.png',
       link: '#'
     },
-    {
-      title: 'ChipSim',
-      category: 'Web Application',
-      desc: 'Interactive chip simulation platform for educational purposes.',
-      tags: ['Web App', 'React', 'Education'],
-      initials: 'CS',
-      link: '#'
-    },
-    {
-      title: 'Sales CRM',
-      category: 'Business Tool',
-      desc: 'Custom CRM for lead tracking, team collaboration, and sales pipeline management.',
-      tags: ['CRM', 'Firebase', 'Real-time'],
-      initials: 'SC',
-      link: '#'
-    },
-    {
-      title: 'Katz AI',
-      category: 'AI Integration',
-      desc: 'AI-powered customer service chatbot with appointment scheduling capabilities.',
-      tags: ['AI', 'Chatbot', 'Automation'],
-      initials: 'KA',
-      link: '#'
-    },
+  ];
+
+  // Companies/clients we've worked with
+  const clients = [
+    { name: 'Ace Hardware', logo: '/logos/ace-hardware.png' },
+    { name: 'Golf Cove', logo: '/logos/golf-cove.png' },
+    { name: 'Ice Cream Productions', logo: '/logos/ice-cream-productions.png' },
   ];
 
   return (
@@ -72,13 +55,44 @@ const PortfolioPage = () => {
         </div>
       </section>
 
-      {/* Portfolio Grid */}
+      {/* Logo Scroller */}
+      <section className="logo-scroller-section">
+        <div className="container">
+          <p className="scroller-label">Trusted by businesses we've partnered with</p>
+        </div>
+        <div className="logo-scroller">
+          <div className="logo-track">
+            {/* Duplicate the logos for seamless infinite scroll */}
+            {[...clients, ...clients, ...clients, ...clients, ...clients, ...clients, ...clients, ...clients].map((client, i) => (
+              <div key={i} className="logo-item">
+                <img src={client.logo} alt={client.name} className="client-logo" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="cta-section">
+        <div className="container">
+          <div className="cta-content">
+            <h2>Want to Be Our Next Success Story?</h2>
+            <p>Let's build something great together.</p>
+            <Link to="/contact" className="btn btn-primary btn-large">Start Your Project</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Portfolio Grid - Hidden for now
       <section className="portfolio-section">
         <div className="container">
           <div className="portfolio-grid">
             {projects.map((project, i) => (
               <div key={i} className="portfolio-card">
-                <div className="portfolio-image" data-initials={project.initials}>
+                <div className="portfolio-image">
+                  {project.image && (
+                    <img src={project.image} alt={project.title} className="portfolio-logo" />
+                  )}
                   <div className="portfolio-overlay">
                     <span className="portfolio-category">{project.category}</span>
                   </div>
@@ -97,17 +111,7 @@ const PortfolioPage = () => {
           </div>
         </div>
       </section>
-
-      {/* CTA */}
-      <section className="cta-section">
-        <div className="container">
-          <div className="cta-content">
-            <h2>Want to Be Our Next Success Story?</h2>
-            <p>Let's build something great together.</p>
-            <Link to="/contact" className="btn btn-primary btn-large">Start Your Project</Link>
-          </div>
-        </div>
-      </section>
+      */}
 
       <Footer />
     </div>

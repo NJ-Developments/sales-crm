@@ -22,7 +22,7 @@
 
 /* Hero Section */
 .hero {
-  min-height: 100vh;
+  min-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,7 +157,7 @@
 
 /* Services Preview */
 .services-preview {
-  padding: 6rem 0;
+  padding: 3rem 0 6rem;
   background: #ffffff;
 }
 
