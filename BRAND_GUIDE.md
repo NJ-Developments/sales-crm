@@ -158,9 +158,19 @@ background: linear-gradient(135deg, #0a192f 0%, #112240 50%, #2dd4bf 100%);
 ## Key Messaging
 
 ### Homepage
-- **Headline:** "We Build Modern Websites, Improve Your Online Visibility"
-- **Subheadline:** "We create custom systems like online ordering, payments, and automation tools."
+- **Headline:** "Websites, Custom Software & Digital Growth for Your Business"
+- **Subheadline:** "We build high-performance websites, custom platforms (like tournament systems and booking tools), and handle your SEO—so you can focus on running your business."
+- **Section Title:** "What We Do"
+- **Section Subtext:** "We specialize in websites, custom software, and SEO"
 - **CTA:** "Start Your Project" / "Get Started Today"
+
+### Homepage Services Preview
+| Service | Description |
+|---------|-------------|
+| Websites That Work | Fast, modern websites designed to turn visitors into customers—not just look good |
+| Custom Software | Built-from-scratch platforms like booking systems, member portals, and tournament management |
+| SEO & Visibility | Get found on Google. We optimize your presence so customers find you first |
+| Ongoing Support | We don't disappear after launch. Real support from real people who know your project |
 
 ### About Page
 - "NJ Developments started with a simple idea: local businesses deserve the same quality digital tools as the big players, without the enterprise price tag."
