@@ -51,7 +51,6 @@ const PortfolioPage = () => {
       <section className="page-hero">
         <div className="container">
           <h1>Our <span className="gradient-text">Work</span></h1>
-          <p>Real projects. Real results. See what we've built.</p>
         </div>
       </section>
 

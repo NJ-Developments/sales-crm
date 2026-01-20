@@ -1,10 +1,32 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import './ContactPage.css';
 
 const ContactPage = () => {
+  const location = useLocation();
+  
+  // Map service titles to form values
+  const serviceMap = {
+    'Website Development': 'website',
+    'Online Ordering & POS': 'ordering',
+    'Custom Platforms': 'platform',
+    'Google Business & SEO': 'seo',
+    'Ongoing Support': 'support',
+    'Marketing & Ads': 'marketing',
+    'AI Reception & Chat': 'ai',
+    'App Development': 'app'
+  };
+
+  const getInitialService = () => {
+    if (location.state?.service) {
+      return serviceMap[location.state.service] || '';
+    }
+    return '';
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -15,12 +37,22 @@ const ContactPage = () => {
     email: '',
     phone: '',
     business: '',
-    service: '',
+    service: getInitialService(),
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+
+  // Update service when navigating from services page
+  useEffect(() => {
+    if (location.state?.service) {
+      setFormData(prev => ({
+        ...prev,
+        service: serviceMap[location.state.service] || ''
+      }));
+    }
+  }, [location.state]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -173,7 +205,8 @@ const ContactPage = () => {
                       <option value="website">Website Development</option>
                       <option value="ordering">Online Ordering / POS</option>
                       <option value="platform">Custom Platform</option>
-                      <option value="seo">Google SEO</option>
+                      <option value="seo">Google Business & SEO</option>
+                      <option value="support">Ongoing Support</option>
                       <option value="marketing">Marketing & Ads</option>
                       <option value="ai">AI Reception / Chat</option>
                       <option value="app">App Development</option>

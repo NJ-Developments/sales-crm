@@ -49,48 +49,6 @@ const AboutPage = () => {
         </div>
       </section>
 
-      {/* Story Section */}
-      <section className="story-section">
-        <div className="container">
-          <div className="story-content">
-            <div className="story-text">
-              <h2>Our <span className="gradient-text">Story</span></h2>
-              <p>
-                NJ Developments started with a simple idea: local businesses deserve the same 
-                quality digital tools as the big players, without the enterprise price tag.
-              </p>
-              <p>
-                We've seen too many businesses struggle with outdated websites, manual processes, 
-                and disconnected systems. That's why we focus on building integrated solutions 
-                that actually solve problems—not just look pretty.
-              </p>
-              <p>
-                From restaurants needing online ordering to golf courses managing tee times, 
-                we've helped businesses streamline their operations 
-                and grow their customer base.
-              </p>
-            </div>
-            <div className="story-values">
-              <div className="value-card">
-                <div className="value-icon"><i className="fas fa-handshake"></i></div>
-                <h3>Partnership</h3>
-                <p>We're not vendors—we're partners in your success.</p>
-              </div>
-              <div className="value-card">
-                <div className="value-icon"><i className="fas fa-bolt"></i></div>
-                <h3>Speed</h3>
-                <p>Fast turnaround without sacrificing quality.</p>
-              </div>
-              <div className="value-card">
-                <div className="value-icon"><i className="fas fa-heart"></i></div>
-                <h3>Care</h3>
-                <p>We treat your business like it's our own.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Team Section */}
       <section className="team-section">
         <div className="container">
@@ -132,6 +90,48 @@ const AboutPage = () => {
                   {member.card && <i className="fas fa-id-card card-icon"></i>}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Story Section */}
+      <section className="story-section">
+        <div className="container">
+          <div className="story-content">
+            <div className="story-text">
+              <h2>Our <span className="gradient-text">Story</span></h2>
+              <p>
+                NJ Developments started with a simple idea: local businesses deserve the same 
+                quality digital tools as the big players, without the enterprise price tag.
+              </p>
+              <p>
+                We've seen too many businesses struggle with outdated websites, manual processes, 
+                and disconnected systems. That's why we focus on building integrated solutions 
+                that actually solve problems—not just look pretty.
+              </p>
+              <p>
+                From restaurants needing online ordering to golf courses managing tee times, 
+                we've helped businesses streamline their operations 
+                and grow their customer base.
+              </p>
+            </div>
+            <div className="story-values">
+              <div className="value-card">
+                <div className="value-icon"><i className="fas fa-handshake"></i></div>
+                <h3>Partnership</h3>
+                <p>We're not vendors—we're partners in your success.</p>
+              </div>
+              <div className="value-card">
+                <div className="value-icon"><i className="fas fa-bolt"></i></div>
+                <h3>Speed</h3>
+                <p>Fast turnaround without sacrificing quality.</p>
+              </div>
+              <div className="value-card">
+                <div className="value-icon"><i className="fas fa-heart"></i></div>
+                <h3>Care</h3>
+                <p>We treat your business like it's our own.</p>
+              </div>
             </div>
           </div>
         </div>

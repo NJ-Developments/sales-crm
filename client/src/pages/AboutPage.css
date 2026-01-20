@@ -386,11 +386,116 @@
   .story-values {
     flex-direction: column;
   }
+
+  .team-content {
+    flex-direction: column;
+  }
+
+  .team-text {
+    max-width: 100%;
+  }
+
+  .team-members {
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
+  .page-hero {
+    padding: 120px 0 40px;
+  }
+
+  .page-hero h1 {
+    font-size: 2rem;
+  }
+
+  .page-hero p {
+    font-size: 1rem;
+  }
+
   .why-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .story-section,
+  .team-section,
+  .why-section {
+    padding: 3rem 0;
+  }
+
+  .story-text h2,
+  .team-text h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  .story-text p,
+  .team-text p {
+    font-size: 0.95rem;
+  }
+
+  .value-card {
+    padding: 1.25rem;
+  }
+
+  .value-card h3 {
+    font-size: 1rem;
+  }
+
+  .value-card p {
+    font-size: 0.85rem;
+  }
+
+  .team-card {
+    padding: 1rem;
+  }
+
+  .team-headshot {
+    width: 50px;
+    height: 50px;
+  }
+
+  .team-info h4 {
+    font-size: 1rem;
+  }
+
+  .team-info span {
+    font-size: 0.8rem;
+  }
+
+  .team-values {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .team-value {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .why-card {
+    padding: 1.5rem;
+  }
+
+  .why-card h3 {
+    font-size: 1rem;
+  }
+
+  .why-card p {
+    font-size: 0.85rem;
+  }
+
+  .cta-content h2 {
+    font-size: 1.5rem;
+  }
+
+  .cta-content p {
+    font-size: 0.95rem;
+  }
+
+  .cta-section {
+    padding: 4rem 0;
   }
 }
 

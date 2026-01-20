@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import './ServicesPage.css';
 
 const ServicesPage = () => {
+  const navigate = useNavigate();
+  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -85,7 +87,11 @@ const ServicesPage = () => {
         <div className="container">
           <div className="services-grid">
             {services.map((service, i) => (
-              <div key={i} className={`service-card ${service.popular ? 'featured' : ''}`}>
+              <div 
+                key={i} 
+                className={`service-card clickable ${service.popular ? 'featured' : ''}`}
+                onClick={() => navigate('/contact', { state: { service: service.title } })}
+              >
                 {service.popular && <div className="featured-badge">Popular</div>}
                 <div className="service-icon"><i className={service.icon}></i></div>
                 <h3>{service.title}</h3>
@@ -95,6 +101,7 @@ const ServicesPage = () => {
                     <li key={j}><i className="fas fa-check"></i> {f}</li>
                   ))}
                 </ul>
+                <div className="card-cta">Get Started <i className="fas fa-arrow-right"></i></div>
               </div>
             ))}
           </div>

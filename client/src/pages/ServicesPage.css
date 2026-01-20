@@ -60,10 +60,32 @@
   transition: all 0.3s ease;
 }
 
+.service-card.clickable {
+  cursor: pointer;
+}
+
 .service-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 12px 24px -4px rgb(0 0 0 / 0.12);
   border-color: #2dd4bf;
+}
+
+.card-cta {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  color: #2dd4bf;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.service-card:hover .card-cta {
+  color: #0a192f;
+  gap: 0.75rem;
 }
 
 .service-card.featured {
@@ -257,9 +279,77 @@
 @media (max-width: 480px) {
   .services-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .process-steps {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .page-hero {
+    padding: 120px 0 40px;
+  }
+
+  .page-hero h1 {
+    font-size: 2rem;
+  }
+
+  .page-hero p {
+    font-size: 1rem;
+  }
+
+  .service-card {
+    padding: 1.5rem;
+  }
+
+  .service-card h3 {
+    font-size: 1.15rem;
+  }
+
+  .service-card p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .service-features li {
+    font-size: 0.85rem;
+  }
+
+  .card-cta {
+    font-size: 0.85rem;
+  }
+
+  .step {
+    padding: 1.5rem;
+  }
+
+  .step h3 {
+    font-size: 1.1rem;
+  }
+
+  .step p {
+    font-size: 0.9rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.75rem;
+  }
+
+  .section-header p {
+    font-size: 0.95rem;
+  }
+
+  .cta-content h2 {
+    font-size: 1.5rem;
+  }
+
+  .cta-content p {
+    font-size: 0.95rem;
+  }
+
+  .btn-large {
+    padding: 1rem 1.75rem;
+    font-size: 1rem;
   }
 }
