@@ -34,6 +34,14 @@ const PortfolioPage = () => {
       image: '/logos/ice-cream-productions.png',
       link: '#'
     },
+    {
+      title: 'RBM Brokerage',
+      category: 'Business Services',
+      desc: 'Professional brokerage platform with client management and transaction tracking.',
+      tags: ['Business', 'Brokerage', 'Platform'],
+      image: '/logos/rbm-brokerage.png',
+      link: '#'
+    },
   ];
 
   // Companies/clients we've worked with
@@ -41,6 +49,7 @@ const PortfolioPage = () => {
     { name: 'Ace Hardware', logo: '/logos/ace-hardware.png' },
     { name: 'Golf Cove', logo: '/logos/golf-cove.png' },
     { name: 'Ice Cream Productions', logo: '/logos/ice-cream-productions.png' },
+    { name: 'RBM Brokerage', logo: '/logos/rbm-brokerage.png' },
   ];
 
   return (
