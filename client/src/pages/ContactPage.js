@@ -11,7 +11,7 @@ const ContactPage = () => {
   // Map service titles to form values
   const serviceMap = {
     'Website Development': 'website',
-    'Online Ordering & POS': 'ordering',
+    'AI Consulting': 'consulting',
     'Custom Platforms': 'platform',
     'Google Business & SEO': 'seo',
     'Ongoing Support': 'support',
@@ -203,7 +203,7 @@ const ContactPage = () => {
                     <select name="service" value={formData.service} onChange={handleChange}>
                       <option value="">Select a service...</option>
                       <option value="website">Website Development</option>
-                      <option value="ordering">Online Ordering / POS</option>
+                      <option value="consulting">AI Consulting</option>
                       <option value="platform">Custom Platform</option>
                       <option value="seo">Google Business & SEO</option>
                       <option value="support">Ongoing Support</option>

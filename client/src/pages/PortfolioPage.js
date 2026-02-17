@@ -13,8 +13,8 @@ const PortfolioPage = () => {
     {
       title: 'Ace Hardware',
       category: 'E-commerce & Inventory',
-      desc: 'Complete hardware store digital solution with inventory management and online ordering system.',
-      tags: ['Website', 'E-commerce', 'Inventory'],
+      desc: 'Complete hardware store digital solution with inventory management and AI-powered customer service.',
+      tags: ['Website', 'E-commerce', 'AI'],
       image: '/logos/ace-hardware.png',
       link: '#'
     },
@@ -28,9 +28,9 @@ const PortfolioPage = () => {
     },
     {
       title: 'Ice Cream Productions',
-      category: 'Point of Sale',
-      desc: 'Custom ordering system with POS integration and loyalty rewards program.',
-      tags: ['POS', 'Ordering', 'Loyalty'],
+      category: 'AI Solutions',
+      desc: 'AI-powered customer engagement with intelligent chatbot and automated loyalty rewards.',
+      tags: ['AI', 'Chatbot', 'Automation'],
       image: '/logos/ice-cream-productions.png',
       link: '#'
     },

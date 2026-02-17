@@ -20,10 +20,10 @@ const ServicesPage = () => {
       popular: true
     },
     {
-      icon: 'fas fa-shopping-cart',
-      title: 'Online Ordering & POS',
-      desc: 'Seamless ordering systems compatible with Toast, Square, or custom hardware. Integrated payment processing for smooth, secure transactions.',
-      features: ['Toast Integration', 'Stripe Payments', 'DoorDash Drive', 'Real-time Orders'],
+      icon: 'fas fa-brain',
+      title: 'AI Consulting',
+      desc: 'Strategic AI implementation to automate workflows, enhance decision-making, and boost productivity. From chatbots to custom AI solutions tailored for your business.',
+      features: ['AI Strategy', 'Workflow Automation', 'Custom AI Solutions', 'ChatGPT Integration'],
       popular: true
     },
     {

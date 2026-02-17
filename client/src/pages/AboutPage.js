@@ -111,7 +111,7 @@ const AboutPage = () => {
                 that actually solve problems—not just look pretty.
               </p>
               <p>
-                From restaurants needing online ordering to golf courses managing tee times, 
+                From businesses needing AI automation to golf courses managing tee times, 
                 we've helped businesses streamline their operations 
                 and grow their customer base.
               </p>
